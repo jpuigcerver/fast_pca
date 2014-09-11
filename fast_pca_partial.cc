@@ -92,7 +92,6 @@ void process_mat_files(
   // this can run in parallel
   for (size_t f = 0; f < input.size(); ++f) {
     const char* fname = (input[f] == stdin ? "*stdin*" : argv[optind + f]);
-    fprintf(stderr, "File: \"%s\", Rows: %d, Cols: %d\n", fname, n[f], dims);
     if (compute_partial<true, real_t>(
             input[f], dims, C.data() + f * dims * dims,
             S.data() + f * dims) != n[f]) {
@@ -110,10 +109,10 @@ void process_mat_files(
   save_integers<true>(num_fn.c_str(), 1, &N);
   // partial covariance
   const string cov_fn = output + ".cov.part";
-  save_matrix<true, real_t>(cov_fn.c_str(), dims, dims, C.data());
+  save_matlab<real_t>(cov_fn.c_str(), dims, dims, C.data());
   // partial mean
   const string mean_fn = output + ".mean.part";
-  save_matrix<true, real_t>(mean_fn.c_str(), 1, dims, S.data());
+  save_matlab<real_t>(mean_fn.c_str(), 1, dims, S.data());
 }
 
 
@@ -148,10 +147,10 @@ void process_simple_files(
   save_integers<true>(num_fn.c_str(), 1, &N);
   // partial covariance
   const string cov_fn = output + ".cov.part";
-  save_matrix<true, real_t>(cov_fn.c_str(), dims, dims, C.data());
+  save_matlab<real_t>(cov_fn.c_str(), dims, dims, C.data());
   // partial mean
   const string mean_fn = output + ".mean.part";
-  save_matrix<true, real_t>(mean_fn.c_str(), 1, dims, S.data());
+  save_matlab<real_t>(mean_fn.c_str(), 1, dims, S.data());
 }
 
 int main(int argc, char** argv) {
