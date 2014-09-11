@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+#include "file.h"
 #include "pca.h"
 
 using std::string;
@@ -13,7 +14,7 @@ using std::vector;
 void help(const char* prog) {
   fprintf(
       stderr,
-      "Usage: %s [-d] [-l eigval] [-s stddev] input [input ...] means eigvec\n"
+      "Usage: %s [-d] [-e eigval] [-s stddev] input [input ...] means eigvec\n"
       "Options:\n"
       "  -d         use double precision\n"
       "  -e eigval  save eigenvalues to this file\n"
@@ -96,31 +97,25 @@ int main(int argc, char** argv) {
   int opt = -1;
   bool simple = true;     // use simple precision ?
   string eigv_fn = "";
-  while ((opt = getopt(argc, argv, "d:sh")) != -1) {
+  string stdv_fn = "";
+  while ((opt = getopt(argc, argv, "de:hs:")) != -1) {
     switch (opt) {
       case 'd':
         simple = false;
         break;
-      case 'l':
+      case 'e':
         eigv_fn = optarg;
         break;
       case 'h':
         help(argv[0]);
         return 0;
+      case 's':
+        stdv_fn = optarg;
+        break;
       default:
         return 1;
     }
   }
-
-  fprintf(stderr, "-------------- Command line --------------\n");
-  fprintf(stderr, "%s", argv[0]);
-  if (!simple) fprintf(stderr, " -d");
-  if (eigv_fn != "") fprintf(stderr, " -l %s", eigv_fn.c_str());
-  for (int a = optind; a < argc; ++a) {
-    fprintf(stderr, " \"%s\"", argv[a]);
-  }
-  fprintf(stderr, "\n");
-  fprintf(stderr, "------------------------------------------\n");
 
   if (optind + 3 > argc) {
     fprintf(stderr, "ERROR: Missing arguments!\n\n");
@@ -128,15 +123,28 @@ int main(int argc, char** argv) {
     exit(1);
   }
 
+  fprintf(stderr, "-------------- Command line --------------\n");
+  fprintf(stderr, "%s", argv[0]);
+  if (!simple) fprintf(stderr, " -d");
+  if (eigv_fn != "") fprintf(stderr, " -e \"%s\"", eigv_fn.c_str());
+  if (stdv_fn != "") fprintf(stderr, " -s \"%s\"", stdv_fn.c_str());
+  for (int a = optind; a < argc; ++a) {
+    fprintf(stderr, " \"%s\"", argv[a]);
+  }
+  fprintf(stderr, "\n");
+  fprintf(stderr, "------------------------------------------\n");
+
   vector<string> input;
   for(int a = optind; a < argc - 2; ++a) {
     input.push_back(argv[a]);
   }
 
   if (simple) {
-    process_reduce_pca<float>(input, argv[argc - 2], argv[argc - 1], eigv_fn);
+    process_reduce_pca<float>(
+        input, argv[argc - 2], argv[argc - 1], eigv_fn, stdv_fn);
   } else {
-    process_reduce_pca<double>(input, argv[argc - 2], argv[argc - 1], eigv_fn);
+    process_reduce_pca<double>(
+        input, argv[argc - 2], argv[argc - 1], eigv_fn, stdv_fn);
   }
 
   return 0;

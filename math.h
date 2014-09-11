@@ -21,6 +21,12 @@ void ger(
 template <typename real_t>
 int syev(int n, real_t* a, real_t* w);
 
+// C = alpha * A * B + beta * C
+template <typename real_t>
+void gemm(
+    char, char, int m, int n, int k, real_t alpha, const real_t* A, int lda,
+    const real_t* B, int ldb, real_t beta, real_t* C, int ldc);
+
 // Compute eigenvalues and eigenvectors of the matrix m
 // Important: Eigenvectors are stored as row vectors in the original matrix m
 template <typename real_t>
@@ -65,5 +71,13 @@ template <> void ger<double>(
 // syev specializations for float and doubles
 template <> int syev<float>(int n, float* a, float* w);
 template <> int syev<double>(int n, double* a, double* w);
+
+// gemm specializations for float and doubles
+template <> void gemm<float>(
+    char, char, int, int, int, float, const float*, int, const float*, int,
+    float, float*, int);
+template <> void gemm<double>(
+    char, char, int, int, int, double, const double*, int, const double*, int,
+    double, double*, int);
 
 #endif  // MATH_H_

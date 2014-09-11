@@ -32,13 +32,59 @@ template <> void dump_matrix<true, double>(FILE*, int, int, const double*);
 template <> void dump_matrix<false, double>(FILE*, int, int, const double*);
 
 // ------------------------------------------------------------------------
+// ---- read_matlab_header: read MAT header from the given file
+// ------------------------------------------------------------------------
+void read_matlab_header(const char* fname, FILE* file, int* rows, int* cols) {
+  int trows = -1, tcols = -1;
+  if (fscanf(file, "%d %d", &trows, &tcols) != 2) {
+    fprintf(stderr, "ERROR: Bad MAT header in file \"%s\"!\n", fname);
+    exit(1);
+  }
+  // check matrix size
+  if (trows < 1 || tcols < 1) {
+    fprintf(stderr, "ERROR: Invalid MAT size in file \"%s\"!\n", fname);
+    exit(1);
+  }
+  if ((*rows > 0 && *rows != trows) || (*cols > 0 && *cols != tcols)) {
+    fprintf(stderr, "ERROR: Wrong expected MAT size in file \"%s\"!\n", fname);
+    exit(1);
+  } else {
+    *rows = trows;
+    *cols = tcols;
+  }
+}
+
+
+// ------------------------------------------------------------------------
+// ---- read_matrix: read ascii/binary matrix from the given file
+// ------------------------------------------------------------------------
+template <bool ascii, typename real_t>
+void read_matrix(
+    const char* fname, FILE* file, int* rows, int cols, real_t* m) {
+  int tr = 0, tc = 0;
+  for (; (tc = read_row<ascii, real_t>(file, cols, m)) == cols;
+       ++tr, m += cols);
+  if (tc != 0 || tc != cols) {
+    fprintf(stderr, "ERROR: Corrupted matrix in \"%s\"!\n", fname);
+    exit(1);
+  }
+  if (*rows > 0 && tr != *rows) {
+    fprintf(stderr, "ERROR: Matrix in \"%s\" is too big!\n", fname);
+    exit(1);
+  } else {
+    *rows = tr;
+  }
+}
+
+
+// ------------------------------------------------------------------------
 // ---- save_matrix: save a matrix to the given file name in ascii/binary
 // ------------------------------------------------------------------------
 template <bool ascii, typename real_t>
 void save_matrix(const char* fname, int rows, int cols, const real_t* m) {
   FILE* file = fopen(fname, ascii ? "w" : "wb");
   if (!file) {
-    fprintf(stderr, "ERROR: Failed writing file \"%s\"!", fname);
+    fprintf(stderr, "ERROR: Failed writing to file \"%s\"!", fname);
     exit(1);
   }
   dump_matrix<ascii, real_t>(file, rows, cols, m);
@@ -51,11 +97,10 @@ void save_matrix(const char* fname, int rows, int cols, const real_t* m) {
 template <typename real_t>
 void save_matlab(const char* fname, int rows, int cols, const real_t* m) {
   FILE* file = fopen(fname, "w");
-  if (!file) {
-    fprintf(stderr, "ERROR: Failed writing file \"%s\"!", fname);
+  if (!file || fprintf(file, "%d %d\n", rows, cols) != 2) {
+    fprintf(stderr, "ERROR: Failed writing to file \"%s\"!", fname);
     exit(1);
   }
-  fprintf(file, "%d %d\n", rows, cols);
   dump_matrix<true, real_t>(file, rows, cols, m);
   fclose(file);
 }
@@ -71,12 +116,7 @@ void load_matrix(const char* fname, int rows, int cols, real_t* m) {
     fprintf(stderr, "ERROR: Failed reading file \"%s\"!\n", fname);
     exit(1);
   }
-  for (int r = 0; r < rows; ++r) {
-    if (read_row<ascii, real_t>(file, cols, m + r * cols) != cols) {
-      fprintf(stderr, "ERROR: Bad matrix format in \"%s\"!\n", fname);
-      exit(1);
-    }
-  }
+  read_matrix(fname, file, &rows, cols, m);
   fclose(file);
 }
 
@@ -128,6 +168,8 @@ void load_integers(const char* fname, int n, int* v) {
   fclose(file);
 }
 
+
+
 // ------------------------------------------------------------------------
 // ---- load_matlab: load a matrix in MAT format from the given file
 // ------------------------------------------------------------------------
@@ -139,31 +181,9 @@ void load_matlab(const char* fname, int* rows, int* cols, vector<real_t>* m) {
     fprintf(stderr, "ERROR: Failed reading file \"%s\"!\n", fname);
     exit(1);
   }
-  // read header
-  int trows = -1, tcols = -1;
-  if (fscanf(file, "%d %d", &trows, &tcols) != 2) {
-    fprintf(stderr, "ERROR: Bad MAT header in file \"%s\"!\n", fname);
-    exit(1);
-  }
-  // check matrix size
-  if (trows < 1 || tcols < 1) {
-    fprintf(stderr, "ERROR: Invalid MAT size in file \"%s\"!\n", fname);
-    exit(1);
-  }
-  if ((*rows > 0 && *rows != trows) || (*cols > 0 && *cols != tcols)) {
-    fprintf(stderr, "ERROR: Wrong expected MAT size in file \"%s\"!\n", fname);
-    exit(1);
-  } else {
-    *rows = trows;
-    *cols = tcols;
-  }
-  m->resize(trows * tcols);
-  for (int r = 0; r < trows; ++r) {
-    if (read_row<true, real_t>(file, tcols, m->data() + r * tcols) != tcols) {
-      fprintf(stderr, "ERROR: Bad matrix format in \"%s\"!\n", fname);
-      exit(1);
-    }
-  }
+  read_matlab_header(fname, file, rows, cols);
+  m->resize((*rows) * (*cols));
+  read_matrix<true, real_t>(fname, file, &rows, cols, m->data());
   fclose(file);
 }
 
