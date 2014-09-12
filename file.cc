@@ -24,33 +24,6 @@ int read_row<false, double>(FILE* file, int cols, double* x) {
   return fread(x, sizeof(double), cols, file);
 }
 
-template <>
-void write_row<true, float>(FILE* file, int cols, const float* m) {
-  for (int c = 0; c < cols - 1; ++c) {
-    fprintf(file, "%g ", m[c]);
-  }
-  fprintf(file, "%g\n", m[cols - 1]);
-}
-
-template <>
-void write_row<true, double>(FILE* file, int cols, const double* m) {
-  for (int c = 0; c < cols - 1; ++c) {
-    fprintf(file, "%lg ", m[c]);
-  }
-  fprintf(file, "%lg\n", m[cols - 1]);
-}
-
-template <>
-void write_row<false, float>(FILE* file, int cols, const float* m) {
-  fwrite(m, sizeof(float), cols, file);
-}
-
-template <>
-void write_row<false, double>(FILE* file, int cols, const double* m) {
-  fwrite(m, sizeof(double), cols, file);
-}
-
-
 void read_matlab_header(
     char const* fname, FILE* file, int* rows, int* cols) {
   int trows = -1, tcols = -1;

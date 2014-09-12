@@ -1,5 +1,5 @@
 #include "math.h"
-
+#include <cblas.h>
 extern "C" {
   void saxpy_(int*, const float*, const float*, int*, float*, int*);
   void daxpy_(int*, const double*, const double*, int*, double*, int*);

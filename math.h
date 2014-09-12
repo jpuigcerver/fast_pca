@@ -52,12 +52,6 @@ int eig(int dims, real_t* m, real_t* w) {
       swap(*x, *y);
     }
   }
-  // Transpose eigenvectors
-  for (int r = 0; r < dims - 1; ++r) {
-    for (int c = r + 1; c < dims; ++c) {
-      swap(m[r * dims + c], m[c * dims + r]);
-    }
-  }
   return 0;
 }
 

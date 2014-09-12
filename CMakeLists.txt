@@ -13,6 +13,7 @@ add_executable(fast_pca
   $<TARGET_OBJECTS:math>
   $<TARGET_OBJECTS:file>)
 target_link_libraries(fast_pca ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+#target_link_libraries(fast_pca ${LAPACK_LIBRARIES})
 
 add_executable(fast_pca_partial
   fast_pca_partial.cc partial.h

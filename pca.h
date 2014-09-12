@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "math.h"
+#include "file.h" // delete
 
 template <typename real_t>
 int pca(int dims, real_t* cov, real_t* w, real_t* s) {
@@ -34,6 +35,7 @@ int project(
   }
   gemm<real_t>(
       'N', 'N', n, odim, idim, 1, B.data(), n, eigvec, idim, 1, data, n);
+  return 0;
 }
 
 template <typename real_t>
@@ -50,8 +52,15 @@ int project_single(
       B[i] /= stdv[i];
     }
   }
-  gemm<real_t>(
-      'N', 'N', 1, odim, idim, 1, B.data(), 1, eigvec, idim, 1, data, 1);
+  /*gemm<real_t>(
+    'N', 'T', 1, odim, idim, 1, B.data(), idim, eigvec, odim, 1, data, odim);*/
+  for (int od = 0; od < odim; ++od) {
+    data[od] = 0;
+    for (int id = 0; id < idim; ++id) {
+      data[od] += B.data()[id] * eigvec[od * idim + id];
+    }
+  }
+  return 0;
 }
 
 #endif  // PCA_H_

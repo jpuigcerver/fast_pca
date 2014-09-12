@@ -13,32 +13,33 @@ using std::vector;
 template <bool ascii, typename real_t>
 int read_row(FILE* file, int cols, real_t* x);
 
-template <bool ascii, typename real_t>
-void write_row(FILE* file, int cols, const real_t* x);
-
 // specialization of read_row function
 template <> int read_row<true, float>(FILE*, int, float*);
 template <> int read_row<false, float>(FILE*, int, float*);
 template <> int read_row<true, double>(FILE*, int, double*);
 template <> int read_row<false, double>(FILE*, int, double*);
 
-// specialization of dump_row function
-template <> void write_row<true, float>(FILE*, int, const float*);
-template <> void write_row<false, float>(FILE*, int, const float*);
-template <> void write_row<true, double>(FILE*, int, const double*);
-template <> void write_row<false, double>(FILE*, int, const double*);
+template <bool ascii, typename real_t>
+void write_row(FILE* file, int cols, const real_t* m) {
+  if (ascii) {
+    for (int c = 0; c < cols - 1; ++c) {
+      fprintf(file, "%.8g ", m[c]);
+    }
+    fprintf(file, "%.8g\n", m[cols - 1]);
+  } else {
+    fwrite(m, sizeof(real_t), cols, file);
+  }
+}
 
 // -------------------------------------------------------------------
 // ---- dump_matrix: dump a matrix to a ascii/binary file
 // -------------------------------------------------------------------
 template <bool ascii, typename real_t>
-void dump_matrix(FILE* file, int rows, int cols, const real_t* m);
-
-// specialization of dump_matrix function
-template <> void dump_matrix<true, float>(FILE*, int, int, const float*);
-template <> void dump_matrix<false, float>(FILE*, int, int, const float*);
-template <> void dump_matrix<true, double>(FILE*, int, int, const double*);
-template <> void dump_matrix<false, double>(FILE*, int, int, const double*);
+void dump_matrix(FILE* file, int rows, int cols, const real_t* m) {
+  for (int r = 0; r < rows; ++r) {
+    write_row<ascii, real_t>(file, cols, m + r * cols);
+  }
+}
 
 // ------------------------------------------------------------------------
 // ---- read_matlab_header: read MAT header from the given file
