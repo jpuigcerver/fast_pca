@@ -24,7 +24,7 @@ int read_row<false, double>(FILE* file, int cols, double* x) {
   return fread(x, sizeof(double), cols, file);
 }
 
-void read_matlab_header(
+void read_text_header(
     char const* fname, FILE* file, int* rows, int* cols) {
   int trows = -1, tcols = -1;
   if (fscanf(file, "%d %d", &trows, &tcols) != 2) {

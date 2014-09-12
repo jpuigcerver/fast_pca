@@ -4,16 +4,29 @@
 #include <cmath>
 
 #include "math.h"
-#include "file.h" // delete
 
+// n -> (input) number of data samples
+// d -> (input) data dimension
+// m -> (input) sum of each dimension, (output) mean of each dimension
+// c -> (input) X' * X, (output) eigenvectors
+// s -> (output) standard deviation of each dimension
+// w -> (output) eigenvalues
 template <typename real_t>
-int pca(int dims, real_t* cov, real_t* w, real_t* s) {
+int pca(int n, int d, real_t* m, real_t* c, real_t* s, real_t* w) {
+  // compute means
+  for (int i = 0; i < d; ++i) { m[i] /= n; }
+  // compute covariance matrix
+  for (int i = 0; i < d; ++i) {
+    for (int j = 0; j < d; ++j) {
+      c[i * d + j] = (c[i * d + j] - n * m[i] * m[j]) / (n - 1);
+    }
+  }
   // compute standard deviation of each dimension
-  for (int d = 0; d < dims; ++d) {
-    s[d] = sqrt(cov[d * dims + d]);
+  for (int i = 0; i < d; ++i) {
+    s[i] = sqrt(c[i * d + i]);
   }
   // compute sorted eigenvectors and eigenvalues
-  return eig<real_t>(dims, cov, w);
+  return eig<real_t>(d, c, w);
 }
 
 template <typename real_t>

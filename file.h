@@ -8,7 +8,7 @@
 using std::vector;
 
 // -------------------------------------------------------------------
-// ---- read_row: read one data sample from a ascii/binary file
+// ---- read_row: read one data row from an ascii/binary file
 // -------------------------------------------------------------------
 template <bool ascii, typename real_t>
 int read_row(FILE* file, int cols, real_t* x);
@@ -19,6 +19,9 @@ template <> int read_row<false, float>(FILE*, int, float*);
 template <> int read_row<true, double>(FILE*, int, double*);
 template <> int read_row<false, double>(FILE*, int, double*);
 
+// -------------------------------------------------------------------
+// ---- write_row: write one data row to an ascii/binary file
+// -------------------------------------------------------------------
 template <bool ascii, typename real_t>
 void write_row(FILE* file, int cols, const real_t* m) {
   if (ascii) {
@@ -31,6 +34,7 @@ void write_row(FILE* file, int cols, const real_t* m) {
   }
 }
 
+
 // -------------------------------------------------------------------
 // ---- dump_matrix: dump a matrix to a ascii/binary file
 // -------------------------------------------------------------------
@@ -41,11 +45,13 @@ void dump_matrix(FILE* file, int rows, int cols, const real_t* m) {
   }
 }
 
+
 // ------------------------------------------------------------------------
-// ---- read_matlab_header: read MAT header from the given file
+// ---- read_text_header: read MAT header from the given file
 // ------------------------------------------------------------------------
-void read_matlab_header(
+void read_text_header(
     char const* fname, FILE* file, int* rows, int* cols);
+
 
 // ------------------------------------------------------------------------
 // ---- read_matrix: read ascii/binary matrix from the given file
@@ -76,23 +82,25 @@ template <bool ascii, typename real_t>
 void save_matrix(const char* fname, int rows, int cols, const real_t* m) {
   FILE* file = fopen(fname, ascii ? "w" : "wb");
   if (!file) {
-    fprintf(stderr, "ERROR: Failed writing to file \"%s\"!", fname);
+    fprintf(stderr, "ERROR: Failed writing to file \"%s\"!\n", fname);
     exit(1);
   }
   dump_matrix<ascii, real_t>(file, rows, cols, m);
   fclose(file);
 }
 
+
 // ---------------------------------------------------------------------------
-// ---- save_matlab: save a MAT matrix to the given file name in ascii/binary
+// ---- save_text: save a MAT matrix to the given file name in ascii/binary
 // ---------------------------------------------------------------------------
 template <typename real_t>
-void save_matlab(const char* fname, int rows, int cols, const real_t* m) {
+void save_text(const char* fname, int rows, int cols, const real_t* m) {
   FILE* file = fopen(fname, "w");
-  if (!file || fprintf(file, "%d %d\n", rows, cols) != 2) {
-    fprintf(stderr, "ERROR: Failed writing to file \"%s\"!", fname);
+  if (!file) {
+    fprintf(stderr, "ERROR: Failed writing to file \"%s\"!\n", fname);
     exit(1);
   }
+  fprintf(file, "%d %d\n", rows, cols);
   dump_matrix<true, real_t>(file, rows, cols, m);
   fclose(file);
 }
@@ -163,17 +171,17 @@ void load_integers(const char* fname, int n, int* v) {
 
 
 // ------------------------------------------------------------------------
-// ---- load_matlab: load a matrix in MAT format from the given file
+// ---- load_text: load a matrix in MAT format from the given file
 // ------------------------------------------------------------------------
 template <typename real_t>
-void load_matlab(const char* fname, int* rows, int* cols, vector<real_t>* m) {
+void load_text(const char* fname, int* rows, int* cols, vector<real_t>* m) {
   // open MAT file
   FILE* file = fopen(fname, "r");
   if (!file) {
     fprintf(stderr, "ERROR: Failed reading file \"%s\"!\n", fname);
     exit(1);
   }
-  read_matlab_header(fname, file, rows, cols);
+  read_text_header(fname, file, rows, cols);
   m->resize((*rows) * (*cols));
   read_matrix<true, real_t>(fname, file, rows, *cols, m->data());
   fclose(file);

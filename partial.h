@@ -36,4 +36,5 @@ int reduce_partial(int mappers, int dims, int* n, real_t* C, real_t* S) {
   return N;
 }
 
+
 #endif  // PARTIAL_H_
