@@ -13,11 +13,20 @@ using std::vector;
 template <bool ascii, typename real_t>
 int read_row(FILE* file, int cols, real_t* x);
 
+template <bool ascii, typename real_t>
+void write_row(FILE* file, int cols, const real_t* x);
+
 // specialization of read_row function
 template <> int read_row<true, float>(FILE*, int, float*);
 template <> int read_row<false, float>(FILE*, int, float*);
 template <> int read_row<true, double>(FILE*, int, double*);
 template <> int read_row<false, double>(FILE*, int, double*);
+
+// specialization of dump_row function
+template <> void write_row<true, float>(FILE*, int, const float*);
+template <> void write_row<false, float>(FILE*, int, const float*);
+template <> void write_row<true, double>(FILE*, int, const double*);
+template <> void write_row<false, double>(FILE*, int, const double*);
 
 // -------------------------------------------------------------------
 // ---- dump_matrix: dump a matrix to a ascii/binary file
@@ -34,26 +43,8 @@ template <> void dump_matrix<false, double>(FILE*, int, int, const double*);
 // ------------------------------------------------------------------------
 // ---- read_matlab_header: read MAT header from the given file
 // ------------------------------------------------------------------------
-void read_matlab_header(const char* fname, FILE* file, int* rows, int* cols) {
-  int trows = -1, tcols = -1;
-  if (fscanf(file, "%d %d", &trows, &tcols) != 2) {
-    fprintf(stderr, "ERROR: Bad MAT header in file \"%s\"!\n", fname);
-    exit(1);
-  }
-  // check matrix size
-  if (trows < 1 || tcols < 1) {
-    fprintf(stderr, "ERROR: Invalid MAT size in file \"%s\"!\n", fname);
-    exit(1);
-  }
-  if ((*rows > 0 && *rows != trows) || (*cols > 0 && *cols != tcols)) {
-    fprintf(stderr, "ERROR: Wrong expected MAT size in file \"%s\"!\n", fname);
-    exit(1);
-  } else {
-    *rows = trows;
-    *cols = tcols;
-  }
-}
-
+void read_matlab_header(
+    char const* fname, FILE* file, int* rows, int* cols);
 
 // ------------------------------------------------------------------------
 // ---- read_matrix: read ascii/binary matrix from the given file
@@ -64,7 +55,7 @@ void read_matrix(
   int tr = 0, tc = 0;
   for (; (tc = read_row<ascii, real_t>(file, cols, m)) == cols;
        ++tr, m += cols);
-  if (tc != 0 || tc != cols) {
+  if (tc != 0 && tc != cols) {
     fprintf(stderr, "ERROR: Corrupted matrix in \"%s\"!\n", fname);
     exit(1);
   }
@@ -183,7 +174,7 @@ void load_matlab(const char* fname, int* rows, int* cols, vector<real_t>* m) {
   }
   read_matlab_header(fname, file, rows, cols);
   m->resize((*rows) * (*cols));
-  read_matrix<true, real_t>(fname, file, &rows, cols, m->data());
+  read_matrix<true, real_t>(fname, file, rows, *cols, m->data());
   fclose(file);
 }
 

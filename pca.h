@@ -50,7 +50,8 @@ int project_single(
       B[i] /= stdv[i];
     }
   }
-  gemv<real_t>('T', odim, idim, 1, eigvec, odim, B.data(), 1, 0, data, 1);
+  gemm<real_t>(
+      'N', 'N', 1, odim, idim, 1, B.data(), 1, eigvec, idim, 1, data, 1);
 }
 
 #endif  // PCA_H_

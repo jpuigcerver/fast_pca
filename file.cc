@@ -25,35 +25,49 @@ int read_row<false, double>(FILE* file, int cols, double* x) {
 }
 
 template <>
-void dump_matrix<true, float>(
-    FILE* file, int rows, int cols, const float* m) {
-  for (int r = 0; r < rows; ++r) {
-    for (int c = 0; c < cols; ++c) {
-      fprintf(file, "%g ", m[r * cols + c]);
-    }
-    fprintf(file, "\n");
+void write_row<true, float>(FILE* file, int cols, const float* m) {
+  for (int c = 0; c < cols - 1; ++c) {
+    fprintf(file, "%g ", m[c]);
   }
+  fprintf(file, "%g\n", m[cols - 1]);
 }
 
 template <>
-void dump_matrix<true, double>(
-    FILE* file, int rows, int cols, const double* m) {
-  for (int r = 0; r < rows; ++r) {
-    for (int c = 0; c < cols; ++c) {
-      fprintf(file, "%lg ", m[r * cols + c]);
-    }
-    fprintf(file, "\n");
+void write_row<true, double>(FILE* file, int cols, const double* m) {
+  for (int c = 0; c < cols - 1; ++c) {
+    fprintf(file, "%lg ", m[c]);
   }
+  fprintf(file, "%lg\n", m[cols - 1]);
 }
 
 template <>
-void dump_matrix<false, float>(
-    FILE* file, int rows, int cols, const float* m) {
-  fwrite(m, sizeof(float), rows * cols, file);
+void write_row<false, float>(FILE* file, int cols, const float* m) {
+  fwrite(m, sizeof(float), cols, file);
 }
 
 template <>
-void dump_matrix<false, double>(
-    FILE* file, int rows, int cols, const double* m) {
-  fwrite(m, sizeof(double), rows * cols, file);
+void write_row<false, double>(FILE* file, int cols, const double* m) {
+  fwrite(m, sizeof(double), cols, file);
+}
+
+
+void read_matlab_header(
+    char const* fname, FILE* file, int* rows, int* cols) {
+  int trows = -1, tcols = -1;
+  if (fscanf(file, "%d %d", &trows, &tcols) != 2) {
+    fprintf(stderr, "ERROR: Bad MAT header in file \"%s\"!\n", fname);
+    exit(1);
+  }
+  // check matrix size
+  if (trows < 1 || tcols < 1) {
+    fprintf(stderr, "ERROR: Invalid MAT size in file \"%s\"!\n", fname);
+    exit(1);
+  }
+  if ((*rows > 0 && *rows != trows) || (*cols > 0 && *cols != tcols)) {
+    fprintf(stderr, "ERROR: Wrong expected MAT size in file \"%s\"!\n", fname);
+    exit(1);
+  } else {
+    *rows = trows;
+    *cols = tcols;
+  }
 }

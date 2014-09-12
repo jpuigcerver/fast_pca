@@ -40,6 +40,7 @@ void load_pca_and_project(
   vector<real_t> stdev;
   int one = 1, idim = -1;
   real_t cum_energy = -1;
+  const bool ascii = (format == "binary" ? false : true);
 
   // load mean vector
   load_matlab<real_t>(mean_fn.c_str(), &one, &idim, &mean);
@@ -66,38 +67,64 @@ void load_pca_and_project(
   for (size_t f = 0; f < input.size(); ++f) {
     FILE* file = fopen(input[f].c_str(), format == "binary" ? "rb" : "r");
     if (!file) {
-      fprintf(stderr, "ERROR: Failed to open file \"%s\"!\n", input[f]);
+      fprintf(stderr, "ERROR: Failed to open file \"%s\"!\n", input[f].c_str());
       exit(1);
     }
     input_files.push_back(file);
   }
-
+  // open output file
+  FILE* output_file = stdout;
+  if (output != "" && !(output_file = fopen(
+          output.c_str(), format == "binary" ? "wb" : "b"))) {
+    fprintf(stderr, "ERROR: Failed to open file \"%s\"!\n", output.c_str());
+    exit(1);
+  }
+  // process MAT headers
+  if (format == "mat") {
+    // input headers
+    int total_rows = 0;
+    for (size_t f = 0; f < input_files.size(); ++f) {
+      FILE* file = input_files[f];
+      const char* fname = (file == stdin ? "**stdin**" : input[f].c_str());
+      int file_rows = -1;
+      read_matlab_header(fname, file, &file_rows, &idim);
+      total_rows += file_rows;
+    }
+    // output header
+    fprintf(stderr, "%d %d\n", total_rows, odim);
+  }
+  // process input files
   for (size_t f = 0; f < input_files.size(); ++f) {
     FILE* file = input_files[f];
-    const string& fname = (file == stdin ? "**stdin**" : input[f]);
-    bool ascii = true;
-    if (format == "mat") {
-      int num_rows = -1;
-      read_matlab_header(fname, file, &num_rows, &idim);
-    } else if (format == "binary") {
-      ascii = false;
-    }
-
+    const char* fname = (file == stdin ? "**stdin**" : input[f].c_str());
     int tcols = 0;
     vector<real_t> x(idim);
     while (1) {
+      // read data row
       const int tcols = ascii ?
-          read_row<true, real_t>(file, idim, x) :
-          read_row<false, real_t>(file, idim, x);
+          read_row<true, real_t>(file, idim, x.data()) :
+          read_row<false, real_t>(file, idim, x.data());
       if (tcols == 0) break;
       else if (tcols != idim) {
         fprintf(stderr, "ERROR: Corrupted matrix in file \"%s\"!\n", fname);
         exit(1);
       }
-      project
-
+      // project data row
+      if (project_single(
+              idim, odim, eigvec.data(), mean.data(),
+              stdev.size() ? stdev.data() : NULL, x.data()) != 0) {
+        fprintf(
+            stderr, "ERROR: Projection failed in file \"%s\"!\n", fname);
+        exit(1);
+      }
+      // output projected data
+      if (ascii) {
+        write_row<true, real_t>(output_file, odim, x.data());
+      } else {
+        write_row<false, real_t>(output_file, odim, x.data());
+      }
     }
-
+    fclose(file);
   }
 }
 
@@ -111,7 +138,7 @@ int main(int argc, char** argv) {
   string mean_fn = "";
   string stdv_fn = "";
   string output = "";
-  while ((opt = getopt(argc, argv, "de:f:g:hm:n:o:s:")) != -1) {
+  while ((opt = getopt(argc, argv, "de:f:g:hm:o:p:q:s:")) != -1) {
     switch (opt) {
       case 'd':
         simple = false;
@@ -122,7 +149,8 @@ int main(int argc, char** argv) {
       case 'f':
         format = optarg;
         if (format != "mat" && format != "ascii" && format != "binary") {
-          fprintf(stderr, "ERROR: Wrong matrix format: \"%s\"!\n", format.c_str());
+          fprintf(
+              stderr, "ERROR: Wrong matrix format: \"%s\"!\n", format.c_str());
           exit(1);
         }
         break;
@@ -135,15 +163,22 @@ int main(int argc, char** argv) {
       case 'm':
         mean_fn = optarg;
         break;
-      case 'n':
+      case 'o':
+        output = optarg;
+        break;
+      case 'p':
         inp_dim = atoi(optarg);
-        if (inp_dim < 2) {
-          fprintf(stderr, "ERROR: Input dimension must be greater than 1!\n");
+        if (inp_dim < 1) {
+          fprintf(stderr, "ERROR: Input dimension must be positive!\n");
           exit(1);
         }
         break;
-      case 'o':
-        output = optarg;
+      case 'q':
+        out_dim = atoi(optarg);
+        if (out_dim < 1) {
+          fprintf(stderr, "ERROR: Output dimension must be positive!\n");
+          exit(1);
+        }
         break;
       case 's':
         stdv_fn = optarg;
@@ -153,41 +188,37 @@ int main(int argc, char** argv) {
     }
   }
 
-  if (optind + 1 > argc) {
-    fprintf(stderr, "ERROR: Missing arguments!\n\n");
-    help(argv[0]);
-    exit(1);
-  }
-
-  fprintf(stderr, "------------------------ Command line ------------------------\n");
+  fprintf(stderr, "-------------------- Command line --------------------\n");
   fprintf(stderr, "%s", argv[0]);
   if (!simple) fprintf(stderr, " -d");
   if (eigval_fn != "") fprintf(stderr, " -e \"%s\"", eigval_fn.c_str());
   if (format != "") fprintf(stderr, " -f \"%s\"", format.c_str());
   if (eigvec_fn != "") fprintf(stderr, " -g \"%s\"", eigvec_fn.c_str());
   if (mean_fn != "") fprintf(stderr, " -m \"%s\"", mean_fn.c_str());
-  if (inp_dim > 1) fprintf(stderr, " -n %d", inp_dim);
   if (output != "") fprintf(stderr, " -o \"%s\"", output.c_str());
+  if (inp_dim > 0) fprintf(stderr, " -p %d", inp_dim);
+  if (out_dim > 0) fprintf(stderr, " -q %d", out_dim);
   if (stdv_fn != "") fprintf(stderr, " -s \"%s\"", stdv_fn.c_str());
-  for (int a = optind; a < argc - 1; ++a) {
+  for (int a = optind; a < argc; ++a) {
     fprintf(stderr, " \"%s\"", argv[a]);
   }
-  fprintf(stderr, " %s\n", argv[argc - 1]);
-  fprintf(stderr, "--------------------------------------------------------------\n");
+  fprintf(stderr, "\n------------------------------------------------------\n");
 
   // input file names
   vector<string> input;
-  for(int a = optind; a < argc - 1; ++a) {
+  for(int a = optind; a < argc; ++a) {
     input.push_back(argv[a]);
   }
 
   if (eigvec_fn != "" && mean_fn != "" && stdv_fn != "") {
     if (simple) {
       load_pca_and_project<float>(
-          format, eigval_fn, eigvec_fn, mean_fn, stdv_fn, out_dim, output);
+          format, eigval_fn, eigvec_fn, mean_fn, stdv_fn, out_dim, input,
+          output);
     } else {
       load_pca_and_project<double>(
-          format, eigval_fn, eigvec_fn, mean_fn, stdv_fn, out_dim, output);
+          format, eigval_fn, eigvec_fn, mean_fn, stdv_fn, out_dim, input,
+          output);
     }
     // load pca data and project
   } else if (input.size() > 0) {
@@ -196,7 +227,7 @@ int main(int argc, char** argv) {
   } else {
     fprintf(
         stderr,
-        "ERROR: You must specify either -g, -m and -s options or an input file!\n");
+        "ERROR: You must specify either -g, -m and -s options or an input!\n");
     exit(1);
   }
 
