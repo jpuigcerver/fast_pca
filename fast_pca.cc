@@ -23,10 +23,10 @@ void help(const char* prog) {
       "  -C         compute pca from data\n"
       "  -P         project data using computed pca\n"
       "  -d         use double precision\n"
-      "  -p idim    input dimensions\n"
-      "  -q odim    output dimensions\n"
+      "  -p idim    data input dimensions\n"
+      "  -q odim    data output dimensions\n"
       "  -j energy  minimum cumulative energy preserved\n"
-      "  -f format  format of the data matrix\n"
+      "  -f format  format of the data matrix (ascii, binary, text)\n"
       "  -e eigvec  eigenvectors of the covariance\n"
       "  -g eigval  eigenvalues of the covariance\n"
       "  -m mean    mean of the data\n"
@@ -401,6 +401,11 @@ int main(int argc, char** argv) {
   fprintf(stderr, "\n-----------------------------------------------------\n");
 
   if (min_energy < 0) min_energy = 1.0;
+
+  if (format != "text" && format != "ascii" && format != "binary") {
+    fprintf(stderr, "ERROR: Unknown format!\n");
+    exit(1);
+  }
 
   // input file names
   vector<string> input;
