@@ -14,12 +14,24 @@ using std::vector;
 void help(const char* prog) {
   fprintf(
       stderr,
-      "Usage: %s [-d] [-p dim] [-f format] [input ...] output\n"
+      "Usage: %s [-d] [-p dim] [-f format] [input ...] out_prefix\n"
       "Options:\n"
       "  -d          use double precision\n"
       "  -p dim      data dimensions\n"
       "  -f format   format of the data matrix (ascii, binary, text)\n",
       prog);
+}
+
+template <typename real_t>
+void do_work(
+    const string& format, int dims, const vector<string>& input,
+    const string& output) {
+  vector<real_t> m;
+  vector<real_t> c;
+  const int n = partial_cov_mean<real_t>(format, &dims, input, output, &m, &c);
+  save_integers<true>((output + ".rows.part").c_str(), 1, &n);
+  save_text<real_t>((output + ".mean.part").c_str(), 1, dims, m.data());
+  save_text<real_t>((output + ".cov.part").c_str(), dims, dims, c.data());
 }
 
 int main(int argc, char** argv) {
@@ -75,54 +87,11 @@ int main(int argc, char** argv) {
   vector<string> input;
   for (int a = optind; a < argc - 1; ++a) { input.push_back(argv[a]); }
 
-  // open input files
-  vector<FILE*> input_files;
-  if (input.size() == 0) { input_files.push_back(stdin); }
-  for (size_t f = 0; f < input.size(); ++f) {
-    FILE* file = fopen(input[f].c_str(), format == "binary" ? "rb" : "r");
-    if (!file) {
-      fprintf(stderr, "ERROR: Failed to open file \"%s\"!\n", input[f].c_str());
-      exit(1);
-    }
-    input_files.push_back(file);
+  if (simple) {
+    do_work<float>(format, dims, input, output);
+  } else {
+    do_work<double>(format, dims, input, output);
   }
-  // number of expected rows in each input file
-  vector<int> expect_rows(input_files.size(), -1);
-  // number of processed rows in each input file
-  vector<int> process_rows(input_files.size(), 0);
-  // read input headers
-  if (format == "text") {
-    for (size_t f = 0; f < input_files.size(); ++f) {
-      FILE* file = input_files[f];
-      const char* fname = (file == stdin ? "**stdin**" : input[f].c_str());
-      read_text_header(fname, file, &expect_rows[f], &dims);
-    }
-  } else if (dims < 1) {
-    fprintf(stderr, "ERROR: You must specify the input dimensions!\n");
-    exit(1);
-  }
-  // Allocate memory for the results.
-  //
-  // ALLOCATE DATA
-  //
-  // TODO(jpuigcerver): this can run in parallel
-  for (size_t f = 0; f < input_files.size(); ++f) {
-    FILE* file = input_files[f];
-    const char* fname = (file == stdin ? "**stdin**" : input[f].c_str());
-    // compute partial results
-    process_rows[f] = ascii ?
-        compute_partial<true, real_t>(
-            file, (*dims), eigvec->data(), mean->data()) :
-        compute_partial<false, real_t>(
-            file, (*dims), eigvec->data(), mean->data());
-    if (process_rows[f] < 0 ||
-        (expect_rows[f] > 0 && process_rows[f] != expect_rows[f])) {
-      fprintf(stderr, "ERROR: Corrupted matrix file \"%s\"!\n", fname);
-      exit(1);
-    }
-  }
-
-
 
   return 0;
 }

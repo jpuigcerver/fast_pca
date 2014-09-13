@@ -211,7 +211,6 @@ void project_data(
   for (size_t f = 0; f < input_files.size(); ++f) {
     FILE* file = input_files[f];
     const char* fname = (file == stdin ? "**stdin**" : input[f].c_str());
-    int tcols = 0;
     vector<real_t> x(idim);
     while (1) {
       // read data row

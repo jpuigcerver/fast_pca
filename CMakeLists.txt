@@ -1,7 +1,7 @@
 cmake_minimum_required (VERSION 2.8.11)
 project (fast_pca)
 
-list(APPEND CMAKE_CXX_FLAGS "-std=c++0x")
+list(APPEND CMAKE_CXX_FLAGS "-std=c++0x -Wall -pedantic")
 
 find_package(LAPACK REQUIRED)
 

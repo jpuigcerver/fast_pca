@@ -18,78 +18,54 @@ void help(const char* prog) {
       "Options:\n"
       "  -d         use double precision\n"
       "  -e eigval  save eigenvalues to this file\n"
-      "  -h         show help\n\n"
-      "  -s stddev  save the std. deviations to this file\n"
-      "This tool reads the partial results produced by fast_pca_partial\n"
-      "to compute the covariance matrix of a dataset and computes the\n"
-      "the mean vector and the eigenvectors of the covariance. Optionally,\n"
-      "it can compute the eigenvalues of the covariance matrix as well.\n\n"
-      "For each input matrix X, the program tries to load these files:\n"
-      "   X.num.part  -> number of rows in X\n"
-      "   X.cov.part  -> X * X'\n"
-      "   X.mean.part -> Ones(1, D) * X\n",
+      "  -s stddev  save the std. deviations to this file\n",
       prog);
 }
 
 template <typename real_t>
-void process_reduce_pca(
-    const vector<string>& input, const string& mean_fn, const string& proj_fn,
-    const string& eigv_fn, const string& stdv_fn) {
-  vector<real_t> part_m;
-  vector<real_t> part_c;
+void do_work(
+    const vector<string>& input, const string& mean_fn, const string& eigvec_fn,
+    const string& eigval_fn, const string& stdev_fn) {
+  vector<real_t> m;
+  vector<real_t> c;
   vector<real_t> mean;
-  vector<real_t> cov;
-  size_t N = 0;
+  vector<real_t> eigvec;
+  int processed_rows = 0;
   int dims = -1;  // number of dimensions will be read from MAT file
   int one = 1;    // used to read the mean partial files
 
   // accumulate partial results to compute the covariance matrix
   for (size_t f = 0; f < input.size(); ++f) {
     // load number of data samples
-    int n = 0;
-    const string num_fn = input[f] + ".num.part";
-    load_integers<true>(num_fn.c_str(), 1, &n);
+    int n = -1;
+    load_integers<true>((input[f] + ".rows.part").c_str(), 1, &n);
     if (n < 1) continue;
-    // load partial covariance
-    const string cov_fn = input[f] + ".cov.part";
-    load_matlab<real_t>(cov_fn.c_str(), &dims, &dims, &part_c);
     // load partial mean
-    const string mean_fn = input[f] + ".mean.part";
-    load_matlab<real_t>(mean_fn.c_str(), &one, &dims, &part_m);
+    load_text<real_t>((input[f] + ".mean.part").c_str(), &one, &dims, &m);
+    // load partial covariance
+    load_text<real_t>((input[f] + ".cov.part").c_str(), &dims, &dims, &c);
     // sum up partial results
     if (mean.size() == 0) { mean.resize(dims); }
-    if (cov.size() == 0) { cov.resize(dims * dims); }
-    axpy<real_t>(dims, 1.0, part_m.data(), mean.data());
-    axpy<real_t>(dims * dims, 1.0, part_c.data(), cov.data());
-    N += n;
+    if (eigvec.size() == 0) { eigvec.resize(dims * dims); }
+    axpy<real_t>(dims, 1.0, m.data(), mean.data());
+    axpy<real_t>(dims * dims, 1.0, c.data(), eigvec.data());
+    processed_rows += n;
   }
-  // compute means
-  for (int i = 0; i < dims; ++i) {
-    mean[i] /= N;
-  }
-  // compute covariance matrix
-  for (int i = 0; i < dims; ++i) {
-    for (int j = 0; j < dims; ++j) {
-      cov[i * dims + j] =
-          (cov[i * dims + j] - N * mean[i] * mean[j]) / (N - 1);
-    }
-  }
-  // compute eigenvalues of the covariance matrix (cov matrix is destroyed)
-  real_t* w = part_m.data();
-  vector<real_t> s(dims);
-  if (pca<real_t>(dims, cov.data(), w, s.data()) != 0) {
-    fprintf(stderr, "ERROR: Failed to compute PCA!\n");
+  vector<real_t> stdev(dims);
+  vector<real_t> eigval(dims);
+  if (pca<real_t>(
+          processed_rows, dims, mean.data(), eigvec.data(), stdev.data(),
+          eigval.data()) != 0) {
+    fprintf(stderr, "ERROR: Failed to compute pca!\n");
     exit(1);
   }
-
-
-  save_matlab<real_t>(mean_fn.c_str(), 1, dims, mean.data());
-  save_matlab<real_t>(proj_fn.c_str(), dims, dims, cov.data());
-  if (eigv_fn != "") {
-    save_matlab<real_t>(eigv_fn.c_str(), 1, dims, w);
+  save_text<real_t>(mean_fn.c_str(), 1, dims, mean.data());
+  save_text<real_t>(eigvec_fn.c_str(), dims, dims, eigvec.data());
+  if (eigval_fn != "") {
+    save_text<real_t>(eigval_fn.c_str(), 1, dims, eigval.data());
   }
-  if (stdv_fn != "") {
-    save_matlab<real_t>(stdv_fn.c_str(), 1, dims, s.data());
+  if (stdev_fn != "") {
+    save_text<real_t>(stdev_fn.c_str(), 1, dims, stdev.data());
   }
 }
 
@@ -140,11 +116,9 @@ int main(int argc, char** argv) {
   }
 
   if (simple) {
-    process_reduce_pca<float>(
-        input, argv[argc - 2], argv[argc - 1], eigv_fn, stdv_fn);
+    do_work<float>(input, argv[argc - 2], argv[argc - 1], eigv_fn, stdv_fn);
   } else {
-    process_reduce_pca<double>(
-        input, argv[argc - 2], argv[argc - 1], eigv_fn, stdv_fn);
+    do_work<double>(input, argv[argc - 2], argv[argc - 1], eigv_fn, stdv_fn);
   }
 
   return 0;
