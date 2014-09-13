@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.8.11)
+cmake_minimum_required (VERSION 2.8)
 project (fast_pca)
 
 list(APPEND CMAKE_CXX_FLAGS "-std=c++0x -Wall -pedantic")

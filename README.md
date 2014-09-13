@@ -1,4 +1,5 @@
 fast_pca
 ========
 
-Fast &amp; memory efficient Principal Components Analysis tool
+A fast and memory efficient Principal Components Analysis software.
+
