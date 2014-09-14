@@ -1,3 +1,27 @@
+/*
+  The MIT License (MIT)
+
+  Copyright (c) 2014 Joan Puigcerver
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*/
+
 #include <getopt.h>
 
 #include <cstdio>
@@ -5,8 +29,8 @@
 #include <string>
 #include <vector>
 
-#include "file.h"
-#include "partial.h"
+#include "fast_pca/file.h"
+#include "fast_pca/partial.h"
 
 using std::string;
 using std::vector;
@@ -36,9 +60,9 @@ void do_work(
 
 int main(int argc, char** argv) {
   int opt = -1;
-  int dims = -1;          // number of dimensions
-  string format = "text"; // input matrix format
-  bool simple = true;     // use simple precision ?
+  int dims = -1;           // number of dimensions
+  string format = "text";  // input matrix format
+  bool simple = true;      // use simple precision ?
 
   while ((opt = getopt(argc, argv, "d:f:o:sh")) != -1) {
     switch (opt) {
@@ -63,15 +87,15 @@ int main(int argc, char** argv) {
     }
   }
 
-  fprintf(stderr, "-------------- Command line --------------\n");
+  fprintf(stderr, "-------------------- Command line -------------------\n");
+  fprintf(stderr, "%s", argv[0]);
   if (!simple) fprintf(stderr, " -d");
   if (format != "") fprintf(stderr, " -f \"%s\"", format.c_str());
   if (dims > 0) fprintf(stderr, " -p %d", dims);
   for (int a = optind; a < argc; ++a) {
     fprintf(stderr, " \"%s\"", argv[a]);
   }
-  fprintf(stderr, "\n");
-  fprintf(stderr, "------------------------------------------\n");
+  fprintf(stderr, "\n-----------------------------------------------------\n");
 
   if (format != "text" && format != "ascii" && format != "binary") {
     fprintf(stderr, "ERROR: Unknown format!\n");

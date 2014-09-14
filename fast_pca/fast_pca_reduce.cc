@@ -1,3 +1,27 @@
+/*
+  The MIT License (MIT)
+
+  Copyright (c) 2014 Joan Puigcerver
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*/
+
 #include <getopt.h>
 
 #include <cstdio>
@@ -5,8 +29,8 @@
 #include <string>
 #include <vector>
 
-#include "file.h"
-#include "pca.h"
+#include "fast_pca/file.h"
+#include "fast_pca/pca.h"
 
 using std::string;
 using std::vector;
@@ -93,13 +117,7 @@ int main(int argc, char** argv) {
     }
   }
 
-  if (optind + 3 > argc) {
-    fprintf(stderr, "ERROR: Missing arguments!\n\n");
-    help(argv[0]);
-    exit(1);
-  }
-
-  fprintf(stderr, "-------------- Command line --------------\n");
+  fprintf(stderr, "-------------------- Command line -------------------\n");
   fprintf(stderr, "%s", argv[0]);
   if (!simple) fprintf(stderr, " -d");
   if (eigv_fn != "") fprintf(stderr, " -e \"%s\"", eigv_fn.c_str());
@@ -107,11 +125,15 @@ int main(int argc, char** argv) {
   for (int a = optind; a < argc; ++a) {
     fprintf(stderr, " \"%s\"", argv[a]);
   }
-  fprintf(stderr, "\n");
-  fprintf(stderr, "------------------------------------------\n");
+  fprintf(stderr, "\n-----------------------------------------------------\n");
+
+  if (optind + 3 > argc) {
+    fprintf(stderr, "ERROR: Missing input arguments!\n");
+    exit(1);
+  }
 
   vector<string> input;
-  for(int a = optind; a < argc - 2; ++a) {
+  for (int a = optind; a < argc - 2; ++a) {
     input.push_back(argv[a]);
   }
 

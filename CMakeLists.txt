@@ -5,25 +5,5 @@ list(APPEND CMAKE_CXX_FLAGS "-std=c++0x -Wall -pedantic")
 
 find_package(LAPACK REQUIRED)
 
-add_library(math OBJECT math.h math.cc)
-add_library(file OBJECT file.h file.cc)
-
-add_executable(fast_pca
-  fast_pca.cc
-  $<TARGET_OBJECTS:math>
-  $<TARGET_OBJECTS:file>)
-target_link_libraries(fast_pca ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
-
-
-add_executable(fast_pca_map
-  fast_pca_map.cc partial.h
-  $<TARGET_OBJECTS:math>
-  $<TARGET_OBJECTS:file>)
-target_link_libraries(fast_pca_map ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
-
-
-add_executable(fast_pca_reduce
-  fast_pca_reduce.cc
-  $<TARGET_OBJECTS:math>
-  $<TARGET_OBJECTS:file>)
-target_link_libraries(fast_pca_reduce ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+include_directories(${PROJECT_SOURCE_DIR})
+add_subdirectory(fast_pca)

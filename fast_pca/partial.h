@@ -1,12 +1,36 @@
-#ifndef PARTIAL_H_
-#define PARTIAL_H_
+/*
+  The MIT License (MIT)
 
-#include "math.h"
-#include "file.h"
+  Copyright (c) 2014 Joan Puigcerver
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*/
+
+#ifndef FAST_PCA_PARTIAL_H_
+#define FAST_PCA_PARTIAL_H_
 
 #include <numeric>
 #include <string>
 #include <vector>
+
+#include "fast_pca/file.h"
+#include "fast_pca/math.h"
 
 using std::accumulate;
 using std::string;
@@ -37,8 +61,8 @@ int reduce_partial(int mappers, int dims, int* n, real_t* C, real_t* S) {
 
 template <typename real_t>
 int partial_cov_mean(
-    const string& format, int *dims, const vector<string>& input, const string& output,
-    vector<real_t>* m, vector<real_t>* c) {
+    const string& format, int *dims, const vector<string>& input,
+    const string& output, vector<real_t>* m, vector<real_t>* c) {
   const bool ascii = format == "binary" ? false : true;
   // open input files
   vector<FILE*> input_files;
@@ -92,4 +116,4 @@ int partial_cov_mean(
       input_files.size(), *dims, processed_rows.data(), c->data(), m->data());
 }
 
-#endif  // PARTIAL_H_
+#endif  // FAST_PCA_PARTIAL_H_

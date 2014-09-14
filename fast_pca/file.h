@@ -1,5 +1,29 @@
-#ifndef FILE_H_
-#define FILE_H_
+/*
+  The MIT License (MIT)
+
+  Copyright (c) 2014 Joan Puigcerver
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*/
+
+#ifndef FAST_PCA_FILE_H_
+#define FAST_PCA_FILE_H_
 
 #include <cstdio>
 #include <cstdlib>
@@ -61,7 +85,7 @@ void read_matrix(
     const char* fname, FILE* file, int* rows, int cols, real_t* m) {
   int tr = 0, tc = 0;
   for (; (tc = read_row<ascii, real_t>(file, cols, m)) == cols;
-       ++tr, m += cols);
+       ++tr, m += cols) {}
   if (tc != 0 && tc != cols) {
     fprintf(stderr, "ERROR: Corrupted matrix in \"%s\"!\n", fname);
     exit(1);
@@ -169,7 +193,6 @@ void load_integers(const char* fname, int n, int* v) {
 }
 
 
-
 // ------------------------------------------------------------------------
 // ---- load_text: load a matrix in MAT format from the given file
 // ------------------------------------------------------------------------
@@ -188,4 +211,4 @@ void load_text(const char* fname, int* rows, int* cols, vector<real_t>* m) {
 }
 
 
-#endif  // FILE_H_
+#endif  // FAST_PCA_FILE_H_

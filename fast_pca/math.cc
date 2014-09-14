@@ -1,4 +1,28 @@
-#include "math.h"
+/*
+  The MIT License (MIT)
+
+  Copyright (c) 2014 Joan Puigcerver
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*/
+
+#include "fast_pca/math.h"
 
 extern "C" {
   void saxpy_(int*, const float*, const float*, int*, float*, int*);
@@ -45,8 +69,8 @@ template <> int syev<float>(int n, float* a, float* w) {
   float wkopt = 0;
   ssyev_(opt, opt + 1, &n, a, &n, w, &wkopt, &lwork, &info);
   if (info != 0) { return info; }
-  lwork = (int)wkopt;
-  float* work = new float [lwork];
+  lwork = static_cast<int>(wkopt);
+  float* work = new float[lwork];
   ssyev_(opt, opt + 1, &n, a, &n, w, work, &lwork, &info);
   delete [] work;
   return info;
@@ -58,8 +82,8 @@ template <> int syev<double>(int n, double* a, double* w) {
   double wkopt = 0;
   dsyev_(opt, opt + 1, &n, a, &n, w, &wkopt, &lwork, &info);
   if (info != 0) { return info; }
-  lwork = (int)wkopt;
-  double* work = new double [lwork];
+  lwork = static_cast<int>(wkopt);
+  double* work = new double[lwork];
   dsyev_(opt, opt + 1, &n, a, &n, w, work, &lwork, &info);
   delete [] work;
   return info;
@@ -72,11 +96,13 @@ template <> void gemm<float>(
   // determine op(B) in col-major order
   if (opA == 'T') TB = 'T';
   else if (opA == 'C') TB = 'C';
-  else TB = 'N';
+  else
+    TB = 'N';
   // determine op(A) in col-major order
   if (opB == 'T') TA = 'T';
   else if (opB == 'C') TA = 'C';
-  else TA = 'N';
+  else
+    TA = 'N';
   // perform operation on col-major order
   sgemm_(&TA, &TB, &n, &m, &k, &alpha, B, &ldb, A, &lda, &beta, C, &ldc);
 }
@@ -88,11 +114,13 @@ template <> void gemm<double>(
   // determine op(B) in col-major order
   if (opA == 'T') TB = 'T';
   else if (opA == 'C') TB = 'C';
-  else TB = 'N';
+  else
+    TB = 'N';
   // determine op(A) in col-major order
   if (opB == 'T') TA = 'T';
   else if (opB == 'C') TA = 'C';
-  else TA = 'N';
+  else
+    TA = 'N';
   // perform operation on col-major order
   dgemm_(&TA, &TB, &n, &m, &k, &alpha, B, &ldb, A, &lda, &beta, C, &ldc);
 }
