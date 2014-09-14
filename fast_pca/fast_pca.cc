@@ -41,8 +41,8 @@ using std::vector;
 void help(const char* prog) {
   fprintf(
       stderr,
-      "Usage: %s [-C] [-P] [-d] [-p idim] [-q odim] [-f format] [-e eigvec] "
-      "[-g eigval] [-j energy] [-m mean] [-s stddev] [-o output] [input ...]\n"
+      "Usage: %s [-C] [-P] [-d] [-p idim] [-q odim] [-j energy] [-f format] "
+      "[-e eigvec] [-g eigval] [-m mean] [-s stddev] [-o output] [input ...]\n"
       "Options:\n"
       "  -C         compute pca from data\n"
       "  -P         project data using computed pca\n"
@@ -55,7 +55,7 @@ void help(const char* prog) {
       "  -g eigval  eigenvalues of the covariance\n"
       "  -m mean    mean of the data\n"
       "  -s stddev  standard deviation of the data\n"
-      "  -o output  output \n\n",
+      "  -o output  output data matrix\n",
       prog);
 }
 

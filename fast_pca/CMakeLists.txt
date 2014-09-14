@@ -5,20 +5,20 @@ add_executable(fast_pca
   fast_pca.cc
   $<TARGET_OBJECTS:math>
   $<TARGET_OBJECTS:file>)
-target_link_libraries(fast_pca ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+target_link_libraries(fast_pca ${LAPACK_LIBRARIES})
 
 
 add_executable(fast_pca_map
   fast_pca_map.cc partial.h
   $<TARGET_OBJECTS:math>
   $<TARGET_OBJECTS:file>)
-target_link_libraries(fast_pca_map ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+target_link_libraries(fast_pca_map ${LAPACK_LIBRARIES})
 
 
 add_executable(fast_pca_reduce
   fast_pca_reduce.cc
   $<TARGET_OBJECTS:math>
   $<TARGET_OBJECTS:file>)
-target_link_libraries(fast_pca_reduce ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+target_link_libraries(fast_pca_reduce ${LAPACK_LIBRARIES})
 
 install_targets(/bin fast_pca fast_pca_map fast_pca_reduce)
