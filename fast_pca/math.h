@@ -51,9 +51,6 @@ void gemm(
     char, char, int m, int n, int k, real_t alpha, const real_t* A, int lda,
     const real_t* B, int ldb, real_t beta, real_t* C, int ldc);
 
-template <typename real_t>
-void gemv();
-
 // Compute eigenvalues and eigenvectors of the matrix m
 // Important: Eigenvectors are stored as row vectors in the original matrix m
 template <typename real_t>
