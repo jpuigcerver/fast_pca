@@ -40,8 +40,8 @@ Mac OS X Accelerate framework.
 ### Installation
 1. Download and unzip or clone the fast_pca repository into your 
 local machine.
-2. Create a "build" directory in fast_pca: 
-```mkdir -p fast_pca/build && cd fast_pca_build```
+2. Create a "build" directory in "fast_pca" directory: 
+```mkdir -p fast_pca/build && cd fast_pca/build```
 3. Configure cmake: 
 ```cmake ..```
 4. Compile and install:
