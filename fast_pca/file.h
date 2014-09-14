@@ -184,7 +184,7 @@ void load_integers(const char* fname, int n, int* v) {
       }
     }
   } else {
-    if (fread(v, sizeof(int), n, file) != n) {
+    if (fread(v, sizeof(int), n, file) != static_cast<size_t>(n)) {
       fprintf(stderr, "ERROR: Failed reading integers from \"%s\"!\n", fname);
       exit(1);
     }
