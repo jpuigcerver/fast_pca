@@ -45,7 +45,7 @@ local machine.
 3. Configure cmake: 
 ```cmake ..```
 4. Compile and install:
-```make && make_install```
+```make && make install```
 
 
 ### Basic usage:
