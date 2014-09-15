@@ -69,26 +69,20 @@ void write_row(FILE* file, int cols, const real_t* m) {
 // ------------------------------------------------------------------------
 template <bool ascii, typename real_t>
 void read_matrix(
-    const char* fname, FILE* file, int* rows, int cols, real_t* m) {
-  int tr = 0, tc = 0;
-  for (; (tc = read_row<ascii, real_t>(file, cols, m)) == cols;
-       ++tr, m += cols) {}
+    const char* fname, FILE* file, int rows, int cols, real_t* m) {
+  int tc = 0;
+  for (int r = 0; r < rows &&
+           (tc = read_row<ascii, real_t>(file, cols, m)) == cols;
+       ++r, m += cols) {}
   if (tc != 0 && tc != cols) {
     fprintf(stderr, "ERROR: Corrupted matrix in \"%s\"!\n", fname);
     exit(1);
-  }
-  if (*rows > 0 && tr != *rows) {
-    fprintf(
-        stderr, "ERROR: Matrix in \"%s\" is bigger than expected!\n", fname);
-    exit(1);
-  } else {
-    *rows = tr;
   }
 }
 
 
 // -------------------------------------------------------------------
-// ---- dump_matrix: dump a matrix to a ascii/binary file
+// ---- write_matrix: write a matrix to a ascii/binary file
 // -------------------------------------------------------------------
 template <bool ascii, typename real_t>
 void write_matrix(FILE* file, int rows, int cols, const real_t* m) {

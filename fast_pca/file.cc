@@ -24,8 +24,6 @@
 
 #include "fast_pca/file.h"
 
-
-
 void read_text_header(
     char const* fname, FILE* file, int* rows, int* cols) {
   int trows = -1, tcols = -1;

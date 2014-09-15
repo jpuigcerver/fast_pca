@@ -41,20 +41,18 @@ using std::vector;
 void help(const char* prog) {
   fprintf(
       stderr,
-      "Usage: %s [-C] [-P] [-d] [-p idim] [-q odim] [-j energy] [-f format] "
-      "[-e eigvec] [-g eigval] [-m mean] [-s stddev] [-o output] [input ...]\n"
+      "Usage: %s [-C] [-P] [-d] [-s] [-p idim] [-q odim] [-j energy] "
+      "[-f format] [-m pca] [-o output] [input ...]\n"
       "Options:\n"
       "  -C         compute pca from data\n"
       "  -P         project data using computed pca\n"
       "  -d         use double precision\n"
+      "  -s         normalize data before projection\n"
       "  -p idim    data input dimensions\n"
       "  -q odim    data output dimensions\n"
       "  -j energy  minimum cumulative energy preserved\n"
       "  -f format  format of the data matrix (ascii, binary, text)\n"
-      "  -e eigvec  eigenvectors of the covariance\n"
-      "  -g eigval  eigenvalues of the covariance\n"
-      "  -m mean    mean of the data\n"
-      "  -s stddev  standard deviation of the data\n"
+      "  -m pca     file containing the pca information\n"
       "  -o output  output data matrix\n",
       prog);
 }
@@ -146,26 +144,6 @@ void compute_pca(
       "Energy quantiles: 25%% -> %d, 50%% -> %d, 75%% -> %d, 100%% -> %d\n",
       quant_dim[0], quant_dim[1], quant_dim[2], quant_dim[3]);
   fprintf(stderr, "-----------------------------------------------------\n");
-}
-
-template <typename real_t>
-void load_pca(
-    const string& eigval_fn, const string& eigvec_fn, const string& mean_fn,
-    const string& stdv_fn, vector<real_t>* eigval, vector<real_t>* eigvec,
-    vector<real_t>* mean, vector<real_t>* stdev, int* idim) {
-  int one = 1;
-  // load mean vector
-  load_text<real_t>(mean_fn.c_str(), &one, idim, mean);
-  // load eigenvectors
-  load_text<real_t>(eigvec_fn.c_str(), idim, idim, eigvec);
-  // compute preserved cumulative energy
-  if (eigval_fn != "") {
-    load_text<real_t>(eigval_fn.c_str(), &one, idim, eigval);
-  }
-  // load standard deviations
-  if (stdv_fn != "") {
-    load_text<real_t>(stdv_fn.c_str(), &one, idim, stdev);
-  }
 }
 
 template <typename real_t>
@@ -275,46 +253,22 @@ void project_data(
 template <typename real_t>
 void do_work(
     const bool do_compute_pca, const bool do_project_data,
-    const string& format, const string& eigval_fn, const string& eigvec_fn,
-    const string& mean_fn, const string& stdev_fn, const vector<string>& input,
+    const string& format, const string& pca_fn, const vector<string>& input,
     const string& output, int inp_dim, int out_dim, double min_energy) {
   vector<real_t> mean;
   vector<real_t> stdev;
   vector<real_t> eigval;
   vector<real_t> eigvec;
-  // safety check, we don't want to waste time doing useless work!
-  if (do_compute_pca && !do_project_data &&
-      (eigvec_fn == "" || mean_fn == "")) {
-    fprintf(
-        stderr,
-        "ERROR: You are neither projecting data or saving useful "
-        "information to project it later. Use -e and -m options!\n");
-    exit(1);
-  }
-
   if (do_compute_pca) {
     compute_pca<real_t>(
         format, input, &inp_dim, &eigval, &eigvec, &mean, &stdev);
-    if (eigval_fn != "") {
-      save_text<real_t>(eigval_fn.c_str(), 1, inp_dim, eigval.data());
-    }
-    if (eigvec_fn != "") {
-      save_text<real_t>(eigvec_fn.c_str(), inp_dim, inp_dim, eigvec.data());
-    }
-    if (mean_fn != "") {
-      save_text<real_t>(mean_fn.c_str(), 1, inp_dim, mean.data());
-    }
-    if (stdev_fn != "") {
-      save_text<real_t>(stdev_fn.c_str(), 1, inp_dim, stdev.data());
+    if (pca_fn != "") {
+      save_pca<real_t>(pca_fn.c_str(), inp_dim, mean, stdev, eigval, eigvec);
+    } else if (!do_project_data || output != "") {
+      save_pca<real_t>(NULL, inp_dim, mean, stdev, eigval, eigvec);
     }
   } else {
-    if (eigvec_fn == "" || mean_fn == "") {
-      fprintf(stderr, "ERROR: You must specify the pca data to load!\n");
-      exit(1);
-    }
-    load_pca<real_t>(
-        eigval_fn, eigvec_fn, mean_fn, stdev_fn, &eigval, &eigvec,
-        &mean, &stdev, &inp_dim);
+    load_pca<real_t>(pca_fn.c_str(), &inp_dim, &mean, &stdev, &eigval, &eigvec);
   }
   if (do_project_data) {
     project_data<real_t>(
@@ -327,16 +281,14 @@ int main(int argc, char** argv) {
   int opt = -1;
   int inp_dim = -1, out_dim = -1;
   bool simple = true;     // use simple precision ?
+  bool normalize_data = true;
   string format = "text";
-  string eigval_fn = "";
-  string eigvec_fn = "";
-  string mean_fn = "";
-  string stdev_fn = "";
+  string pca_fn = "";
   string output = "";
   double min_energy = -1.0;
   bool do_compute_pca = false;
   bool do_project_data = false;
-  while ((opt = getopt(argc, argv, "CPde:f:g:j:hm:o:p:q:s:")) != -1) {
+  while ((opt = getopt(argc, argv, "CPdshf:j:m:o:p:q:")) != -1) {
     switch (opt) {
       case 'C':
         do_compute_pca = true;
@@ -347,9 +299,12 @@ int main(int argc, char** argv) {
       case 'd':
         simple = false;
         break;
-      case 'e':
-        eigvec_fn = optarg;
+      case 's':
+        normalize_data = false;
         break;
+      case 'h':
+        help(argv[0]);
+        return 0;
       case 'f':
         format = optarg;
         if (format != "text" && format != "ascii" && format != "binary") {
@@ -357,9 +312,6 @@ int main(int argc, char** argv) {
               stderr, "ERROR: Wrong matrix format: \"%s\"!\n", format.c_str());
           exit(1);
         }
-        break;
-      case 'g':
-        eigval_fn = optarg;
         break;
       case 'j':
         min_energy = atof(optarg);
@@ -369,11 +321,8 @@ int main(int argc, char** argv) {
               min_energy);
         }
         break;
-      case 'h':
-        help(argv[0]);
-        return 0;
       case 'm':
-        mean_fn = optarg;
+        pca_fn = optarg;
         break;
       case 'o':
         output = optarg;
@@ -392,9 +341,6 @@ int main(int argc, char** argv) {
           exit(1);
         }
         break;
-      case 's':
-        stdev_fn = optarg;
-        break;
       default:
         return 1;
     }
@@ -409,14 +355,12 @@ int main(int argc, char** argv) {
   if (do_compute_pca) fprintf(stderr, " -C");
   if (do_project_data) fprintf(stderr, " -P");
   if (!simple) fprintf(stderr, " -d");
+  if (!normalize_data) fprintf(stderr, " -s");
   if (inp_dim > 0) fprintf(stderr, " -p %d", inp_dim);
   if (out_dim > 0) fprintf(stderr, " -q %d", out_dim);
   if (min_energy > 0) fprintf(stderr, " -j %g", min_energy);
   if (format != "") fprintf(stderr, " -f \"%s\"", format.c_str());
-  if (eigvec_fn != "") fprintf(stderr, " -e \"%s\"", eigvec_fn.c_str());
-  if (eigval_fn != "") fprintf(stderr, " -g \"%s\"", eigval_fn.c_str());
-  if (mean_fn != "") fprintf(stderr, " -m \"%s\"", mean_fn.c_str());
-  if (stdev_fn != "") fprintf(stderr, " -s \"%s\"", stdev_fn.c_str());
+  if (pca_fn != "") fprintf(stderr, " -m \"%s\"", pca_fn.c_str());
   if (output != "") fprintf(stderr, " -o \"%s\"", output.c_str());
   for (int a = optind; a < argc; ++a) {
     fprintf(stderr, " \"%s\"", argv[a]);
@@ -442,12 +386,12 @@ int main(int argc, char** argv) {
   }
   if (simple) {
     do_work<float>(
-        do_compute_pca, do_project_data, format, eigval_fn, eigvec_fn,
-        mean_fn, stdev_fn, input, output, inp_dim, out_dim, min_energy);
+        do_compute_pca, do_project_data, format, pca_fn, input, output,
+        inp_dim, out_dim, min_energy);
   } else {
     do_work<double>(
-        do_compute_pca, do_project_data, format, eigval_fn, eigvec_fn,
-        mean_fn, stdev_fn, input, output, inp_dim, out_dim, min_energy);
+        do_compute_pca, do_project_data, format, pca_fn, input, output,
+        inp_dim, out_dim, min_energy);
   }
 
   return 0;
