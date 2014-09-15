@@ -1,3 +1,6 @@
+add_library(file_common OBJECT file_common.h file_common.cc)
+add_library(file_plain OBJECT file_plain.h file_plain.cc)
+
 add_library(math OBJECT math.h math.cc)
 add_library(file OBJECT file.h file.cc)
 

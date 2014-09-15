@@ -26,9 +26,11 @@
 #define FAST_PCA_PCA_H_
 
 #include <cmath>
+#include <cstring>
 #include <vector>
 
 #include "fast_pca/math.h"
+#include "fast_pca/file.h"
 
 // n -> (input) number of data samples
 // d -> (input) data dimension
@@ -54,50 +56,29 @@ int pca(int n, int d, real_t* m, real_t* c, real_t* s, real_t* w) {
   return eig<real_t>(d, c, w);
 }
 
+// n -> (input) number of data samples
+// p -> (input) input data dimension
+// q -> (input) output data dimension
+// e -> (input) eigenvectors of the zero-mean covariance of the input data
+// m -> (input) mean of the input data for each dimension
+// s -> (input) standard deviation of the input data for each dimension
+// x -> (input/output) data
 template <typename real_t>
 int project(
-    int n, int idim, int odim, const real_t* eigvec, const real_t* mean,
-    const real_t* stdv, real_t* data) {
-  if (idim < odim) { return -1; }
-  // center input data (B = X - mean)
-  vector<real_t> B(data, data + n * idim);
-  // this can run in parallel
-  for (int i = 0; i < n; ++i) {
-    axpy<real_t>(idim, -1, mean, B.data() + i * idim);
-  }
+    int n, int p, int q, const real_t* e, const real_t* m, const real_t* s,
+    real_t* x) {
+  if (p < q) { return -1; }
+  // allocate space for zero-mean data
+  vector<real_t> B(x, x + n * p);
+  // convert input data to zero-mean
+  // TODO(jpuigcerver): this can run in parallel
+  for (int i = 0; i < n; ++i) { axpy<real_t>(p, -1, m, B.data() + i * p); }
   // if the variances are given, input data is normalized
-  if (stdv) {
-    for (int i = 0; i < n * idim; ++i) {
-      B[i] /= stdv[i % idim];
-    }
+  if (s) {
+    // TODO(jpuigcerver): this can run in parallel
+    for (int i = 0; i < n * p; ++i) { B[i] /= s[i % p]; }
   }
-  gemm<real_t>(
-      'N', 'N', n, odim, idim, 1, B.data(), n, eigvec, idim, 1, data, n);
-  return 0;
-}
-
-template <typename real_t>
-int project_single(
-    int idim, int odim, const real_t* eigvec, const real_t* mean,
-    const real_t* stdv, real_t* data) {
-  if (idim < odim) { return -1; }
-  // center input data (B = X - mean)
-  vector<real_t> B(data, data + idim);
-  axpy<real_t>(idim, -1, mean, B.data());
-  // if the variances are given, input data is normalized
-  if (stdv) {
-    for (int i = 0; i < idim; ++i) {
-      B[i] /= stdv[i];
-    }
-  }
-  /*gemm<real_t>(
-    'N', 'T', 1, odim, idim, 1, B.data(), idim, eigvec, odim, 1, data, odim);*/
-  for (int od = 0; od < odim; ++od) {
-    data[od] = 0;
-    for (int id = 0; id < idim; ++id) {
-      data[od] += B.data()[id] * eigvec[od * idim + id];
-    }
-  }
+  gemm<real_t>('N', 'T', n, q, p, 1, B.data(), p, e, p, 0, x, q);
   return 0;
 }
 

@@ -89,38 +89,30 @@ template <> int syev<double>(int n, double* a, double* w) {
   return info;
 }
 
+void gemm_op(char* opA, char* opB) {
+  char TA, TB;
+  // determine op(B) in col-major order
+  if (*opA == 'T') { TB = 'T'; }
+  else if (*opA == 'C') { TB = 'C'; }
+  else { TB = 'N'; }
+  // determine op(A) in col-major order
+  if (*opB == 'T') { TA = 'T'; }
+  else if (*opB == 'C') { TA = 'C'; }
+  else { TA = 'N'; }
+  *opA = TA;
+  *opB = TB;
+}
+
 template <> void gemm<float>(
     char opA, char opB, int m, int n, int k, float alpha, const float* A,
     int lda, const float* B, int ldb, float beta, float* C, int ldc) {
-  char TA, TB;
-  // determine op(B) in col-major order
-  if (opA == 'T') TB = 'T';
-  else if (opA == 'C') TB = 'C';
-  else
-    TB = 'N';
-  // determine op(A) in col-major order
-  if (opB == 'T') TA = 'T';
-  else if (opB == 'C') TA = 'C';
-  else
-    TA = 'N';
-  // perform operation on col-major order
-  sgemm_(&TA, &TB, &n, &m, &k, &alpha, B, &ldb, A, &lda, &beta, C, &ldc);
+  gemm_op(&opA, &opB);
+  sgemm_(&opA, &opB, &n, &m, &k, &alpha, B, &ldb, A, &lda, &beta, C, &ldc);
 }
 
 template <> void gemm<double>(
     char opA, char opB, int m, int n, int k, double alpha, const double* A,
     int lda, const double* B, int ldb, double beta, double* C, int ldc) {
-    char TA, TB;
-  // determine op(B) in col-major order
-  if (opA == 'T') TB = 'T';
-  else if (opA == 'C') TB = 'C';
-  else
-    TB = 'N';
-  // determine op(A) in col-major order
-  if (opB == 'T') TA = 'T';
-  else if (opB == 'C') TA = 'C';
-  else
-    TA = 'N';
-  // perform operation on col-major order
-  dgemm_(&TA, &TB, &n, &m, &k, &alpha, B, &ldb, A, &lda, &beta, C, &ldc);
+  gemm_op(&opA, &opB);
+  dgemm_(&opA, &opB, &n, &m, &k, &alpha, B, &ldb, A, &lda, &beta, C, &ldc);
 }

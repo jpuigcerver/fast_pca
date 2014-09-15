@@ -71,6 +71,12 @@ void dump_matrix(FILE* file, int rows, int cols, const real_t* m) {
 
 
 // ------------------------------------------------------------------------
+// ---- file_open: Open a file with the specified mode
+// ------------------------------------------------------------------------
+FILE* file_open(const char* fname, const char* mode);
+
+
+// ------------------------------------------------------------------------
 // ---- read_text_header: read MAT header from the given file
 // ------------------------------------------------------------------------
 void read_text_header(
@@ -98,17 +104,12 @@ void read_matrix(
   }
 }
 
-
 // ------------------------------------------------------------------------
 // ---- save_matrix: save a matrix to the given file name in ascii/binary
 // ------------------------------------------------------------------------
 template <bool ascii, typename real_t>
 void save_matrix(const char* fname, int rows, int cols, const real_t* m) {
-  FILE* file = fopen(fname, ascii ? "w" : "wb");
-  if (!file) {
-    fprintf(stderr, "ERROR: Failed writing to file \"%s\"!\n", fname);
-    exit(1);
-  }
+  FILE* file = file_open(fname, ascii ? "w" : "wb");
   dump_matrix<ascii, real_t>(file, rows, cols, m);
   fclose(file);
 }
@@ -119,11 +120,7 @@ void save_matrix(const char* fname, int rows, int cols, const real_t* m) {
 // ---------------------------------------------------------------------------
 template <typename real_t>
 void save_text(const char* fname, int rows, int cols, const real_t* m) {
-  FILE* file = fopen(fname, "w");
-  if (!file) {
-    fprintf(stderr, "ERROR: Failed writing to file \"%s\"!\n", fname);
-    exit(1);
-  }
+  FILE* file = file_open(fname, "w");
   fprintf(file, "%d %d\n", rows, cols);
   dump_matrix<true, real_t>(file, rows, cols, m);
   fclose(file);
@@ -135,11 +132,7 @@ void save_text(const char* fname, int rows, int cols, const real_t* m) {
 // ------------------------------------------------------------------------
 template <bool ascii, typename real_t>
 void load_matrix(const char* fname, int rows, int cols, real_t* m) {
-  FILE* file = fopen(fname, ascii ? "r" : "rb");
-  if (!file) {
-    fprintf(stderr, "ERROR: Failed reading file \"%s\"!\n", fname);
-    exit(1);
-  }
+  FILE* file = file_open(fname, ascii ? "w" : "wb");
   read_matrix(fname, file, &rows, cols, m);
   fclose(file);
 }
@@ -150,11 +143,7 @@ void load_matrix(const char* fname, int rows, int cols, real_t* m) {
 // ---------------------------------------------------------------------------
 template <bool ascii>
 void save_integers(const char* fname, int n, const int* v) {
-  FILE* file = fopen(fname, ascii ? "w" : "wb");
-  if (!file) {
-    fprintf(stderr, "ERROR: Failed writing file \"%s\"!\n", fname);
-    exit(1);
-  }
+  FILE* file = file_open(fname, ascii ? "w" : "wb");
   if (ascii) {
     for (int i = 0; i < n; ++i) {
       fprintf(file, "%d ", v[i]);
@@ -171,11 +160,7 @@ void save_integers(const char* fname, int n, const int* v) {
 // ---------------------------------------------------------------------------
 template <bool ascii>
 void load_integers(const char* fname, int n, int* v) {
-  FILE* file = fopen(fname, ascii ? "r" : "rb");
-  if (!file) {
-    fprintf(stderr, "ERROR: Failed reading file \"%s\"!\n", fname);
-    exit(1);
-  }
+  FILE* file = file_open(fname, ascii ? "r" : "rb");
   if (ascii) {
     for (int i = 0; i < n; ++i) {
       if (fscanf(file, "%d", v + i) != 1) {
@@ -199,16 +184,14 @@ void load_integers(const char* fname, int n, int* v) {
 template <typename real_t>
 void load_text(const char* fname, int* rows, int* cols, vector<real_t>* m) {
   // open MAT file
-  FILE* file = fopen(fname, "r");
-  if (!file) {
-    fprintf(stderr, "ERROR: Failed reading file \"%s\"!\n", fname);
-    exit(1);
-  }
+  FILE* file = file_open(fname, "r");
   read_text_header(fname, file, rows, cols);
   m->resize((*rows) * (*cols));
   read_matrix<true, real_t>(fname, file, rows, *cols, m->data());
   fclose(file);
 }
+
+
 
 
 #endif  // FAST_PCA_FILE_H_

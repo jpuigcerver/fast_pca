@@ -247,8 +247,8 @@ void project_data(
         exit(1);
       }
       // project data row
-      if (project_single(
-              idim, odim, eigvec.data(), mean.data(),
+      if (project(
+              1, idim, odim, eigvec.data(), mean.data(),
               stdev.size() ? stdev.data() : NULL, x.data()) != 0) {
         fprintf(
             stderr, "ERROR: Projection failed in file \"%s\"!\n", fname);
