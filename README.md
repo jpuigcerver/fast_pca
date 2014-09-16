@@ -52,38 +52,38 @@ local machine.
 - Compute mean, standard deviation and eigenvalues and eigenvectors of a
 matrix:
 ```
-fast_pca -C -e A.eigvec.mat -g A.eigval.mat -m A.mean.mat -s A.stddev.mat A.mat
+fast_pca -C -m pca.mat A.mat
 ```
-This will generate the matrices A.eigvec.mat, A.eigval.mat (eigenvectors
-and eigenvalues of the zero-mean data), A.mean.mat (mean of each 
-dimension) and A.stddev.mat (standard deviation of each dimension).
+This will generate a file containing 3 vectors (the mean M, the standard 
+deviation S and the eigenvalues D) and a matrix (the eigenvalues V). The
+file is in the same format used by Octave.
 
 The input data matrix can also be read from stdin.
 
 - Project a matrix into a lower-dimensional space:
 ```
-fast_pca -P -e A.eigvec.mat -g A.eigval.mat -m A.mean.mat -s A.stddev.mat -q 2 A.mat > A.2d.mat
+fast_pca -P -m pca.mat -q 2 A.mat > A.2d.mat
 ``` 
-fast_pca reads the eigenvectors, eigenvalues, mean and standard deviation
-matrices and projects the data matrix A.mat into a two-dimensional space.
-The resulting data is stored into A.2d.mat.
+fast_pca reads the PCA data file and projects the data matrix A.mat into a
+two-dimensional space. The resulting data is stored into A.2d.mat.
 
 The input data matrix can also be read from stdin.
 
 - Perform PCA and projection to preserve 95% of the variance using a
 single call:
 ```
-fast_pca -j 0.95 A.mat > A.2d.mat
+fast_pca -j 0.95 A.mat
 ```
 fast_pca will perform the PCA and the projection on the same call.
 Observe that the input data will be read twice: first to perform the PCA
-and finally to perform de dimensionality reduction.
+and finally to perform de dimensionality reduction. The projected
+data will be print on the standard output.
 
 
 ### Matrix formats:
 - Data samples are represented by row-vectors. Matrices are read and 
 stored in row-major order.
-- For an M x N matrix A, the default format (called "text") is an ASCII 
+- For an M x N matrix A, the default format (called "simple") is an ASCII 
 file with the following format:
 ```
 M N
