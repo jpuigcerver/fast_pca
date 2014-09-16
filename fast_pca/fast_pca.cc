@@ -47,7 +47,7 @@ void help(const char* prog) {
       "  -C         compute pca from data\n"
       "  -P         project data using computed pca\n"
       "  -d         use double precision\n"
-      "  -s         normalize data before projection\n"
+      "  -s         don't normalize data\n"
       "  -p idim    data input dimensions\n"
       "  -q odim    data output dimensions\n"
       "  -j energy  minimum cumulative energy preserved\n"
