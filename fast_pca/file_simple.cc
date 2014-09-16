@@ -22,39 +22,29 @@
   SOFTWARE.
 */
 
-#include "fast_pca/file_common.h"
+#include "fast_pca/file_simple.h"
 
-FILE* file_open(const char* fname, const char* mode) {
-  FILE* file = fopen(fname, mode);
-  if (!file) {
-    fprintf(
-        stderr, "ERROR: Failed to open file \"%s\" with mode \"%s\"!\n",
-        fname, mode);
+namespace simple {
+
+void read_header_ascii(
+    char const* fname, FILE* file, int* rows, int* cols) {
+  int trows = -1, tcols = -1;
+  if (fscanf(file, "%d %d", &trows, &tcols) != 2) {
+    fprintf(stderr, "ERROR: Bad MAT header in file \"%s\"!\n", fname);
     exit(1);
   }
-  return file;
+  // check matrix size
+  if (trows < 1 || tcols < 1) {
+    fprintf(stderr, "ERROR: Invalid MAT size in file \"%s\"!\n", fname);
+    exit(1);
+  }
+  if ((*rows > 0 && *rows != trows) || (*cols > 0 && *cols != tcols)) {
+    fprintf(stderr, "ERROR: Wrong expected MAT size in file \"%s\"!\n", fname);
+    exit(1);
+  } else {
+    *rows = trows;
+    *cols = tcols;
+  }
 }
 
-template <>
-int read_row<true, float>(FILE* file, int cols, float* x) {
-  int c = 0;
-  for (; c < cols && fscanf(file, "%f", x + c) == 1; ++c) {}
-  return c;
-}
-
-template <>
-int read_row<true, double>(FILE* file, int cols, double* x) {
-  int c = 0;
-  for (; c < cols && fscanf(file, "%lf", x + c) == 1; ++c) {}
-  return c;
-}
-
-template <>
-int read_row<false, float>(FILE* file, int cols, float* x) {
-  return fread(x, sizeof(float), cols, file);
-}
-
-template <>
-int read_row<false, double>(FILE* file, int cols, double* x) {
-  return fread(x, sizeof(double), cols, file);
-}
+}  // namespace simple

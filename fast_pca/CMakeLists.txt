@@ -1,16 +1,16 @@
-add_library(file_common OBJECT file_common.h file_common.cc)
-#add_library(file_plain OBJECT file_plain.h file_plain.cc)
-add_library(file_octave OBJECT file_octave.h file_octave.cc)
-
 add_library(math OBJECT math.h math.cc)
-add_library(file OBJECT file.h file.cc)
+add_library(file OBJECT
+  file.h file.cc
+  file_common.h file_common.cc
+  file_octave.h file_octave.cc
+  file_simple.h file_simple.cc
+  file_plain.h
+  file_pca.h)
 
 add_executable(fast_pca
   fast_pca.cc
   $<TARGET_OBJECTS:math>
-  $<TARGET_OBJECTS:file>
-  $<TARGET_OBJECTS:file_common>
-  $<TARGET_OBJECTS:file_octave>)
+  $<TARGET_OBJECTS:file>)
 target_link_libraries(fast_pca ${LAPACK_LIBRARIES})
 
 

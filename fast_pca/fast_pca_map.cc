@@ -38,7 +38,7 @@ using std::vector;
 void help(const char* prog) {
   fprintf(
       stderr,
-      "Usage: %s [-d] [-p dim] [-f format] [input ...] out_prefix\n"
+      "Usage: %s [-d] [-p dim] [-f format] [input ...] output\n"
       "Options:\n"
       "  -d          use double precision\n"
       "  -p dim      data dimensions\n"
@@ -53,15 +53,13 @@ void do_work(
   vector<real_t> m;
   vector<real_t> c;
   const int n = partial_cov_mean<real_t>(format, &dims, input, output, &m, &c);
-  save_integers<true>((output + ".rows.part").c_str(), 1, &n);
-  save_text<real_t>((output + ".mean.part").c_str(), 1, dims, m.data());
-  save_text<real_t>((output + ".cov.part").c_str(), dims, dims, c.data());
+  partial::save_partial<real_t>(output.c_str(), n, dims, m, c);
 }
 
 int main(int argc, char** argv) {
   int opt = -1;
   int dims = -1;           // number of dimensions
-  string format = "text";  // input matrix format
+  string format = "simple";  // input matrix format
   bool simple = true;      // use simple precision ?
 
   while ((opt = getopt(argc, argv, "d:f:o:sh")) != -1) {
@@ -97,13 +95,13 @@ int main(int argc, char** argv) {
   }
   fprintf(stderr, "\n-----------------------------------------------------\n");
 
-  if (format != "text" && format != "ascii" && format != "binary") {
+  if (format != "simple" && format != "ascii" && format != "binary") {
     fprintf(stderr, "ERROR: Unknown format!\n");
     exit(1);
   }
 
   if (optind + 1 > argc) {
-    fprintf(stderr, "ERROR: You must specify an output prefix!\n");
+    fprintf(stderr, "ERROR: You must specify an output file!\n");
     exit(1);
   }
 

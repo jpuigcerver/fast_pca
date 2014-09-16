@@ -1,8 +1,38 @@
+/*
+  The MIT License (MIT)
+
+  Copyright (c) 2014 Joan Puigcerver
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+*/
+
 #ifndef FAST_PCA_FILE_PCA_H_
 #define FAST_PCA_FILE_PCA_H_
 
+#include <string>
+#include <vector>
+
 #include "fast_pca/file_common.h"
 #include "fast_pca/file_octave.h"
+
+using std::string;
+using std::vector;
 
 template <typename real_t>
 void load_pca(
@@ -11,20 +41,24 @@ void load_pca(
   int one = 1;
   FILE* file = file_open(fname, "r");
   // means
-  octave::read_header_ascii(fname, file, &one, d);
-  mean->reserve(*d);
+  string name = "M";
+  octave::read_matrix_header_ascii(fname, file, &name, &one, d);
+  mean->resize(*d);
   read_matrix<true, real_t>(fname, file, one, *d, mean->data());
   // standard deviations
-  octave::read_header_ascii(fname, file, &one, d);
-  stddev->reserve(*d);
+  name = "S";
+  octave::read_matrix_header_ascii(fname, file, &name, &one, d);
+  stddev->resize(*d);
   read_matrix<true, real_t>(fname, file, one, *d, stddev->data());
   // eigenvalues
-  octave::read_header_ascii(fname, file, &one, d);
-  eigval->reserve(*d);
+  name = "D";
+  octave::read_matrix_header_ascii(fname, file, &name, &one, d);
+  eigval->resize(*d);
   read_matrix<true, real_t>(fname, file, one, *d, eigval->data());
   // eigenvectors
-  octave::read_header_ascii(fname, file, d, d);
-  eigvec->reserve(*d);
+  name = "V";
+  octave::read_matrix_header_ascii(fname, file, &name, d, d);
+  eigvec->resize(*d);
   read_matrix<true, real_t>(fname, file, *d, *d, eigvec->data());
   fclose(file);
 }
@@ -37,20 +71,16 @@ void save_pca(
   FILE* file = stdout;
   if (fname != NULL) { file = file_open(fname, "w"); }
   // means
-  fprintf(file, "# name: M\n");
-  octave::write_header_ascii(fname, file, 1, d);
+  octave::write_matrix_header_ascii(fname, file, "M", 1, d);
   write_row<true, real_t>(file, d, mean.data());
   // standard deviations
-  fprintf(file, "# name: S\n");
-  octave::write_header_ascii(fname, file, 1, d);
+  octave::write_matrix_header_ascii(fname, file, "S", 1, d);
   write_row<true, real_t>(file, d, stddev.data());
   // eigenvalues
-  fprintf(file, "# name: D\n");
-  octave::write_header_ascii(fname, file, 1, d);
+  octave::write_matrix_header_ascii(fname, file, "D", 1, d);
   write_row<true, real_t>(file, d, eigval.data());
   // eigenvectors
-  fprintf(file, "# name: V\n");
-  octave::write_header_ascii(fname, file, d, d);
+  octave::write_matrix_header_ascii(fname, file, "V", d, d);
   write_matrix<true, real_t>(file, d, d, eigvec.data());
   if (fname != NULL) { fclose(file); }
 }

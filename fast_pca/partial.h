@@ -68,11 +68,7 @@ int partial_cov_mean(
   vector<FILE*> input_files;
   if (input.size() == 0) { input_files.push_back(stdin); }
   for (size_t f = 0; f < input.size(); ++f) {
-    FILE* file = fopen(input[f].c_str(), format == "binary" ? "rb" : "r");
-    if (!file) {
-      fprintf(stderr, "ERROR: Failed to open file \"%s\"!\n", input[f].c_str());
-      exit(1);
-    }
+    FILE* file = file_open(input[f].c_str(), format == "binary" ? "rb" : "r");
     input_files.push_back(file);
   }
   // number of expected rows in each input file
@@ -80,11 +76,11 @@ int partial_cov_mean(
   // number of processed rows in each input file
   vector<int> processed_rows(input_files.size(), 0);
   // read input headers
-  if (format == "text") {
+  if (format == "simple") {
     for (size_t f = 0; f < input_files.size(); ++f) {
       FILE* file = input_files[f];
       const char* fname = (file == stdin ? "**stdin**" : input[f].c_str());
-      read_text_header(fname, file, &expect_rows[f], dims);
+      simple::read_header_ascii(fname, file, &expect_rows[f], dims);
     }
   } else if (*dims < 1) {
     fprintf(stderr, "ERROR: You must specify the input dimensions!\n");

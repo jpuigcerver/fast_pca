@@ -79,11 +79,11 @@ void compute_pca(
   // number of processed rows in each input file
   vector<int> process_rows(input_files.size(), 0);
   // read input headers
-  if (format == "text") {
+  if (format == "simple") {
     for (size_t f = 0; f < input_files.size(); ++f) {
       FILE* file = input_files[f];
       const char* fname = (file == stdin ? "**stdin**" : input[f].c_str());
-      read_text_header(fname, file, &expect_rows[f], dims);
+      simple::read_header_ascii(fname, file, &expect_rows[f], dims);
     }
   } else if (*dims < 1) {
     fprintf(stderr, "ERROR: You must specify the input dimensions!\n");
@@ -152,24 +152,21 @@ void project_data(
     const vector<real_t>& eigval, const vector<real_t>& eigvec,
     const vector<real_t>& mean, const vector<real_t>& stdev,
     const vector<string>& input, const string& output, int idim, int odim,
-    double min_energy) {
+    double min_energy, bool normalize_data) {
   const bool ascii = (format == "binary" ? false : true);
   // compute cumulative energy preserved and (optionally) output dimension
   const double total_energy = accumulate(eigval.begin(), eigval.end(), 0.0);
   double cum_energy = -1.0;
-  if (odim > 0 && total_energy > 0.0) {
+  if (odim > 0) {
     cum_energy =
         accumulate(eigval.begin(), eigval.begin() + odim, 0.0) / total_energy;
-  } else if (total_energy > 0.0 && min_energy > 0.0) {
+  } else {
     cum_energy = eigval[0];
     for (odim = 1; odim < idim && (cum_energy / total_energy < min_energy);
          ++odim) {
       cum_energy += eigval[odim];
     }
     cum_energy = min(cum_energy / total_energy, 1.0);
-  } else {
-    fprintf(stderr, "ERROR: Output dimension cannot be determined!\n");
-    exit(1);
   }
   // check input and output dimensions
   if (idim < odim) {
@@ -195,14 +192,14 @@ void project_data(
     exit(1);
   }
   // process MAT headers
-  if (format == "text") {
+  if (format == "simple") {
     // input headers
     int total_rows = 0;
     for (size_t f = 0; f < input_files.size(); ++f) {
       FILE* file = input_files[f];
       const char* fname = (file == stdin ? "**stdin**" : input[f].c_str());
       int file_rows = -1;
-      read_text_header(fname, file, &file_rows, &idim);
+      simple::read_header_ascii(fname, file, &file_rows, &idim);
       total_rows += file_rows;
     }
     // output header
@@ -227,7 +224,7 @@ void project_data(
       // project data row
       if (project(
               1, idim, odim, eigvec.data(), mean.data(),
-              stdev.size() ? stdev.data() : NULL, x.data()) != 0) {
+              normalize_data ? stdev.data() : NULL, x.data()) != 0) {
         fprintf(
             stderr, "ERROR: Projection failed in file \"%s\"!\n", fname);
         exit(1);
@@ -254,7 +251,8 @@ template <typename real_t>
 void do_work(
     const bool do_compute_pca, const bool do_project_data,
     const string& format, const string& pca_fn, const vector<string>& input,
-    const string& output, int inp_dim, int out_dim, double min_energy) {
+    const string& output, int inp_dim, int out_dim, double min_energy,
+    bool normalize_data) {
   vector<real_t> mean;
   vector<real_t> stdev;
   vector<real_t> eigval;
@@ -268,21 +266,25 @@ void do_work(
       save_pca<real_t>(NULL, inp_dim, mean, stdev, eigval, eigvec);
     }
   } else {
+    if (pca_fn == "") {
+      fprintf(stderr, "ERROR: Projection requires pca file (-m)!\n");
+      exit(1);
+    }
     load_pca<real_t>(pca_fn.c_str(), &inp_dim, &mean, &stdev, &eigval, &eigvec);
   }
   if (do_project_data) {
     project_data<real_t>(
         format, eigval, eigvec, mean, stdev, input, output, inp_dim, out_dim,
-        min_energy);
+        min_energy, normalize_data);
   }
 }
 
 int main(int argc, char** argv) {
   int opt = -1;
   int inp_dim = -1, out_dim = -1;
-  bool simple = true;     // use simple precision ?
+  bool simple_precision = true;     // use simple precision ?
   bool normalize_data = true;
-  string format = "text";
+  string format = "simple";
   string pca_fn = "";
   string output = "";
   double min_energy = -1.0;
@@ -297,7 +299,7 @@ int main(int argc, char** argv) {
         do_project_data = true;
         break;
       case 'd':
-        simple = false;
+        simple_precision = false;
         break;
       case 's':
         normalize_data = false;
@@ -307,7 +309,7 @@ int main(int argc, char** argv) {
         return 0;
       case 'f':
         format = optarg;
-        if (format != "text" && format != "ascii" && format != "binary") {
+        if (format != "simple" && format != "ascii" && format != "binary") {
           fprintf(
               stderr, "ERROR: Wrong matrix format: \"%s\"!\n", format.c_str());
           exit(1);
@@ -354,7 +356,7 @@ int main(int argc, char** argv) {
   fprintf(stderr, "%s", argv[0]);
   if (do_compute_pca) fprintf(stderr, " -C");
   if (do_project_data) fprintf(stderr, " -P");
-  if (!simple) fprintf(stderr, " -d");
+  if (!simple_precision) fprintf(stderr, " -d");
   if (!normalize_data) fprintf(stderr, " -s");
   if (inp_dim > 0) fprintf(stderr, " -p %d", inp_dim);
   if (out_dim > 0) fprintf(stderr, " -q %d", out_dim);
@@ -369,11 +371,6 @@ int main(int argc, char** argv) {
 
   if (min_energy < 0) min_energy = 1.0;
 
-  if (format != "text" && format != "ascii" && format != "binary") {
-    fprintf(stderr, "ERROR: Unknown format!\n");
-    exit(1);
-  }
-
   // input file names
   vector<string> input;
   for (int a = optind; a < argc; ++a) {
@@ -384,14 +381,14 @@ int main(int argc, char** argv) {
     fprintf(stderr, "ERROR: When reading from stdin, use either -C or -P!\n");
     exit(1);
   }
-  if (simple) {
+  if (simple_precision) {
     do_work<float>(
         do_compute_pca, do_project_data, format, pca_fn, input, output,
-        inp_dim, out_dim, min_energy);
+        inp_dim, out_dim, min_energy, normalize_data);
   } else {
     do_work<double>(
         do_compute_pca, do_project_data, format, pca_fn, input, output,
-        inp_dim, out_dim, min_energy);
+        inp_dim, out_dim, min_energy, normalize_data);
   }
 
   return 0;

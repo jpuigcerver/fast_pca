@@ -92,13 +92,19 @@ template <> int syev<double>(int n, double* a, double* w) {
 void gemm_op(char* opA, char* opB) {
   char TA, TB;
   // determine op(B) in col-major order
-  if (*opA == 'T') { TB = 'T'; }
-  else if (*opA == 'C') { TB = 'C'; }
-  else { TB = 'N'; }
+  if (*opA == 'T') {
+    TB = 'T';
+  } else if (*opA == 'C') {
+    TB = 'C';
+  } else { TB = 'N'; }
   // determine op(A) in col-major order
-  if (*opB == 'T') { TA = 'T'; }
-  else if (*opB == 'C') { TA = 'C'; }
-  else { TA = 'N'; }
+  if (*opB == 'T') {
+    TA = 'T';
+  } else if (*opB == 'C') {
+    TA = 'C';
+  } else {
+    TA = 'N';
+  }
   *opA = TA;
   *opB = TB;
 }

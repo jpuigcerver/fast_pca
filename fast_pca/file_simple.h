@@ -22,49 +22,49 @@
   SOFTWARE.
 */
 
-#ifndef FAST_PCA_FILE_OCTAVE_H_
-#define FAST_PCA_FILE_OCTAVE_H_
+#ifndef FAST_PCA_FILE_SIMPLE_H_
+#define FAST_PCA_FILE_SIMPLE_H_
 
-#include <cstdio>
-#include <string>
 #include <vector>
 
 #include "fast_pca/file_common.h"
 
-using std::string;
 using std::vector;
 
-namespace octave {
+namespace simple {
 
-void read_matrix_header_ascii(
-    const char* fname, FILE* file, string* name, int* rows, int* cols);
-void write_matrix_header_ascii(
-    const char* fname, FILE* file, const string& name, int rows, int cols);
+// ------------------------------------------------------------------------
+// ---- read_header_ascii: read MAT header from the given file
+// ------------------------------------------------------------------------
+void read_header_ascii(
+    char const* fname, FILE* file, int* rows, int* cols);
 
-void read_scalar_ascii(const char* fname, FILE* file, string* name, int* v);
-void write_scalar_ascii(
-    const char* fname, FILE* file, const string& name, int n);
 
+// ---------------------------------------------------------------------------
+// ---- save_simple: save a MAT matrix to the given file name in ascii/binary
+// ---------------------------------------------------------------------------
 template <typename real_t>
-void save_ascii(const char* fname, int rows, int cols, const real_t* m) {
+void save_simple(const char* fname, int rows, int cols, const real_t* m) {
   FILE* file = file_open(fname, "w");
-  write_matrix_header_ascii(fname, file, "", rows, cols);
+  fprintf(file, "%d %d\n", rows, cols);
   write_matrix<true, real_t>(file, rows, cols, m);
   fclose(file);
 }
 
+
+// ------------------------------------------------------------------------
+// ---- load_simple: load a matrix in MAT format from the given file
+// ------------------------------------------------------------------------
 template <typename real_t>
-void load_ascii(
-    const char* fname, int* rows, int* cols, vector<real_t>* m) {
+void load_simple(const char* fname, int* rows, int* cols, vector<real_t>* m) {
+  // open MAT file
   FILE* file = file_open(fname, "r");
-  string name;
-  read_matrix_header_ascii(fname, file, &name, rows, cols);
+  read_header_ascii(fname, file, rows, cols);
   m->resize((*rows) * (*cols));
   read_matrix<true, real_t>(fname, file, rows, *cols, m->data());
   fclose(file);
 }
 
-}  // namespace octave
+}  // namespace simple
 
-
-#endif  // FAST_PCA_FILE_OCTAVE_H_
+#endif  // FAST_PCA_FILE_SIMPLE_H_
