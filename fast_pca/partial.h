@@ -52,7 +52,7 @@ int compute_partial(
     const int read_rows = b / dims;
     // update covariance partial
     gemm<real_t>(
-        'T', 'N', dims, read_rows, dims, 1, x.data(), rows, x.data(), dims,
+        'T', 'N', dims, read_rows, dims, 1, x.data(), read_rows, x.data(), dims,
         1, C, dims);
     // update mean partial
     gemv<real_t>('T', dims, read_rows, 1, x.data(), read_rows,

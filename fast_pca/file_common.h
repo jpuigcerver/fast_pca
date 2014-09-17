@@ -27,8 +27,10 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <string>
 #include <vector>
 
+using std::string;
 using std::vector;
 
 // ------------------------------------------------------------------------
@@ -44,6 +46,11 @@ FILE* open_file(const char* fname, const char* mode);
 void open_files(
     const char* mode, const char* stdname, FILE* stdfile, vector<string>* names,
     vector<FILE*>* files);
+
+// ------------------------------------------------------------------------
+// ---- close_files: Close a list of opened files
+// ------------------------------------------------------------------------
+void close_files(const vector<FILE*>& files);
 
 // -------------------------------------------------------------------
 // ---- read_block: read one data row from an ascii/binary file
@@ -69,6 +76,17 @@ void write_block(FILE* file, int n, const real_t* m) {
     fprintf(file, "%.10g\n", m[n - 1]);
   } else {
     fwrite(m, sizeof(real_t), n, file);
+  }
+}
+
+template <bool ascii, typename real_t>
+void write_matrix(FILE* file, int rows, int cols, const real_t* m) {
+  if (ascii) {
+    for (int r = 0; r < rows; ++r) {
+      write_block<true, real_t>(file, cols, m + r * cols);
+    }
+  } else {
+    write_block<false, real_t>(file, rows * cols, m);
   }
 }
 

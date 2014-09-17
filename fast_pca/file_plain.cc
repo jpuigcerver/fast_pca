@@ -22,22 +22,30 @@
   SOFTWARE.
 */
 
-#ifndef FAST_PCA_FILE_PLAIN_H_
-#define FAST_PCA_FILE_PLAIN_H_
+#include <cstdio>
 
-//#include "fast_pca/file_common.h"
+#include "fast_pca/file.h"
 
 // Plain ASCII format
+template <> int read_matrix_header<FMT_ASCII>(
+    FILE* file, string* name, int* rows, int* cols) {
+  return 0;
+}
+
+template <> void write_matrix_header<FMT_ASCII>(
+    FILE* file, const string& name, int rows, int cols) {
+}
+
 template <> int read_block<FMT_ASCII, float>(FILE* file, int n, float* m) {
   int i = 0;
-  for (; i < n && fscanf(file, "%f", m + i) == 0; ++i) { }
-  return (i != n);
+  for (; i < n && fscanf(file, "%f", m + i) == 1; ++i) { }
+  return i;
 }
 
 template <> int read_block<FMT_ASCII, double>(FILE* file, int n, double* m) {
   int i = 0;
-  for (; i < n && fscanf(file, "%lf", m + i) == 0; ++i) { }
-  return (i != n);
+  for (; i < n && fscanf(file, "%lf", m + i) == 1; ++i) { }
+  return i;
 }
 
 template <> void write_block<FMT_ASCII, float>(
@@ -53,12 +61,21 @@ template <> void write_block<FMT_ASCII, double>(
 }
 
 // Plain Binary format
+template <> int read_matrix_header<FMT_BINARY>(
+    FILE* file, string* name, int* rows, int* cols) {
+  return 0;
+}
+
+template <> void write_matrix_header<FMT_BINARY>(
+    FILE* file, const string& name, int rows, int cols) {
+}
+
 template <> int read_block<FMT_BINARY, float>(FILE* file, int n, float* m) {
-  return (static_cast<int>(fread(m, sizeof(float), n, file)) != n);
+  return fread(m, sizeof(float), n, file);
 }
 
 template <> int read_block<FMT_BINARY, double>(FILE* file, int n, double* m) {
-  return (static_cast<int>(fread(m, sizeof(double), n, file)) != n);
+  return fread(m, sizeof(double), n, file);
 }
 
 template <> void write_block<FMT_BINARY, float>(
@@ -70,5 +87,3 @@ template <> void write_block<FMT_BINARY, double>(
     FILE* file, int n, const double* m) {
   fwrite(m, sizeof(double), n, file);
 }
-
-#endif  // FAST_PCA_FILE_PLAIN_H_

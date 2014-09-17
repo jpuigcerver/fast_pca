@@ -48,6 +48,15 @@ void open_files(
   }
 }
 
+void close_files(const vector<FILE*>& files) {
+  for (size_t f = 0; f < files.size(); ++f) {
+    FILE* file = files[f];
+    if (file != stdin && file != stdout && file != stderr) {
+      fclose(file);
+    }
+  }
+}
+
 template <>
 int read_block<true, float>(FILE* file, int n, float* x) {
   int c = 0;

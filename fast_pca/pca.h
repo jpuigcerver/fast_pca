@@ -25,35 +25,42 @@
 #ifndef FAST_PCA_PCA_H_
 #define FAST_PCA_PCA_H_
 
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <vector>
 
 #include "fast_pca/math.h"
-#include "fast_pca/file.h"
 
-// n -> (input) number of data samples
-// d -> (input) data dimension
-// m -> (input) sum of each dimension, (output) mean of each dimension
-// c -> (input) X' * X, (output) eigenvectors
-// s -> (output) standard deviation of each dimension
+using std::sort;
+using std::swap;
+using std::vector;
+
+// Compute eigenvalues and eigenvectors of the matrix m
+// n -> (input)  number of dimensions
+// m -> (input)  squared matrix, (output) eigenvectors
 // w -> (output) eigenvalues
 template <typename real_t>
-int pca(int n, int d, real_t* m, real_t* c, real_t* s, real_t* w) {
-  // compute means
-  for (int i = 0; i < d; ++i) { m[i] /= n; }
-  // compute covariance matrix
-  for (int i = 0; i < d; ++i) {
-    for (int j = 0; j < d; ++j) {
-      c[i * d + j] = (c[i * d + j] - n * m[i] * m[j]) / (n - 1);
+int eig(int n, real_t* m, real_t* w) {
+  // Compute eigenvalues and eigenvectors
+  const int info = syev<real_t>(n, m, w);
+  if (info != 0) { return info; }
+  // Compute ordering of the eigenvalues
+  vector<int> order(n);
+  for (int d = 0; d < n; ++d) { order[d] = d; }
+  sort(order.begin(), order.end(), [&w](int a, int b) -> bool {
+      return w[a] > w[b];
+    });
+  // Reorder eigenvalues and eigenvectors
+  for (int r = 0; r < n / 2; ++r) {
+    swap(w[r], w[order[r]]);
+    for (int d = 0; d < n; ++d) {
+      real_t* x = m + r * n + d;
+      real_t* y = m + order[r] * n + d;
+      swap(*x, *y);
     }
   }
-  // compute standard deviation of each dimension
-  for (int i = 0; i < d; ++i) {
-    s[i] = sqrt(c[i * d + i]);
-  }
-  // compute sorted eigenvectors and eigenvalues
-  return eig<real_t>(d, c, w);
+  return 0;
 }
 
 // n -> (input) number of data samples
@@ -76,7 +83,13 @@ int project(
   // if the variances are given, input data is normalized
   if (s) {
     // TODO(jpuigcerver): this can run in parallel
-    for (int i = 0; i < n * p; ++i) { B[i] /= s[i % p]; }
+    for (int i = 0; i < n * p; ++i) {
+      // just for safety, if the variance is small,
+      // do not normalize data in that dimension
+      if (s[i % p] > 1E-6) {
+        B[i] /= s[i % p];
+      }
+    }
   }
   gemm<real_t>('N', 'T', n, q, p, 1, B.data(), p, e, p, 0, x, q);
   return 0;

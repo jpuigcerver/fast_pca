@@ -45,10 +45,10 @@ void read_header_ascii(
 // ---------------------------------------------------------------------------
 template <typename real_t>
 void save_simple(const char* fname, int rows, int cols, const real_t* m) {
-  FILE* file = file_open(fname, "w");
+  /*FILE* file = file_open(fname, "w");
   fprintf(file, "%d %d\n", rows, cols);
   write_matrix<true, real_t>(file, rows, cols, m);
-  fclose(file);
+  fclose(file);*/
 }
 
 
@@ -58,11 +58,11 @@ void save_simple(const char* fname, int rows, int cols, const real_t* m) {
 template <typename real_t>
 void load_simple(const char* fname, int* rows, int* cols, vector<real_t>* m) {
   // open MAT file
-  FILE* file = file_open(fname, "r");
+  /*FILE* file = file_open(fname, "r");
   read_header_ascii(fname, file, rows, cols);
   m->resize((*rows) * (*cols));
   read_matrix<true, real_t>(fname, file, rows, *cols, m->data());
-  fclose(file);
+  fclose(file);*/
 }
 
 }  // namespace simple
