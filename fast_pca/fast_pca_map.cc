@@ -38,37 +38,71 @@ using std::vector;
 void help(const char* prog) {
   fprintf(
       stderr,
-      "Usage: %s [-d] [-p dim] [-f format] [input ...] output\n"
+      "Usage: %s [-d] [-p dim] [-f format] [-o output] [input ...]\n"
       "Options:\n"
       "  -d          use double precision\n"
       "  -p dim      data dimensions\n"
-      "  -f format   format of the data matrix (ascii, binary, text)\n",
+      "  -f format   format of the data matrix (ascii, binary, text)\n"
+      "  -o output   output file\n",
       prog);
 }
 
 template <typename real_t>
 void do_work(
-    const string& format, int dims, const vector<string>& input,
-    const string& output) {
-  vector<real_t> m;
-  vector<real_t> c;
-  const int n = partial_cov_mean<real_t>(format, &dims, input, output, &m, &c);
-  partial::save_partial<real_t>(output.c_str(), n, dims, m, c);
+    const string& format, int block_rows, int dims, const string& output,
+    vector<string>* input) {
+  if (format == "plain" && dims <= 0) {
+    fprintf(stderr, "ERROR: You must specify the number of dimensions!\n");
+    exit(1);
+  }
+  // open input files
+  vector<FILE*> files;
+  open_files(
+      format == "binary" ? "rb" : "r", "**stdin**", stdin, input, &files);
+  // read header information
+  vector<int> expect_rows(files->size(), -1);
+  for (size_t f = 0; f < files.size(); ++f) {
+    if (format == "simple") {
+      simple::read_header_ascii(
+          input[f].c_str(), files[f], &expect_rows[f], &dims);
+    } else if (format == "octave") {
+      // TODO
+      exit(2);
+    }
+  }
+  vector<real_t> x(block_rows * dims);
+  vector<real_t> m(dims);
+  vector<real_t> c(dims * dims);
+  for (size_t f = 0; f < files.size(); ++f) {
+    const char* fname = input[f].c_str();
+    FILE* file = files[f];
+    read_block<real_t>(file, block_rows * dims, x->data());
+  }
+
+
 }
 
 int main(int argc, char** argv) {
   int opt = -1;
-  int dims = -1;           // number of dimensions
+  int dims = -1;             // number of dimensions
+  bool simple = true;        // use simple precision ?
   string format = "simple";  // input matrix format
-  bool simple = true;      // use simple precision ?
+  string output = "";
 
-  while ((opt = getopt(argc, argv, "d:f:o:sh")) != -1) {
+  while ((opt = getopt(argc, argv, "df:o:p:h")) != -1) {
     switch (opt) {
       case 'd':
         simple = false;
         break;
       case 'f':
         format = optarg;
+        if (format != "simple" && format != "ascii" && format != "binary") {
+          fprintf(stderr, "ERROR: Unknown format!\n");
+          exit(1);
+        }
+        break;
+      case 'o':
+        output = optarg;
         break;
       case 'p':
         dims = atoi(optarg);
@@ -88,26 +122,16 @@ int main(int argc, char** argv) {
   fprintf(stderr, "-------------------- Command line -------------------\n");
   fprintf(stderr, "%s", argv[0]);
   if (!simple) fprintf(stderr, " -d");
-  if (format != "") fprintf(stderr, " -f \"%s\"", format.c_str());
   if (dims > 0) fprintf(stderr, " -p %d", dims);
+  fprintf(stderr, " -f \"%s\"", format.c_str());
+  if (output != "") fprintf(stderr, "-o %s", output.c_str());
   for (int a = optind; a < argc; ++a) {
     fprintf(stderr, " \"%s\"", argv[a]);
   }
   fprintf(stderr, "\n-----------------------------------------------------\n");
 
-  if (format != "simple" && format != "ascii" && format != "binary") {
-    fprintf(stderr, "ERROR: Unknown format!\n");
-    exit(1);
-  }
-
-  if (optind + 1 > argc) {
-    fprintf(stderr, "ERROR: You must specify an output file!\n");
-    exit(1);
-  }
-
-  const string& output = argv[argc - 1];
   vector<string> input;
-  for (int a = optind; a < argc - 1; ++a) { input.push_back(argv[a]); }
+  for (int a = optind; a < argc; ++a) { input.push_back(argv[a]); }
 
   if (simple) {
     do_work<float>(format, dims, input, output);

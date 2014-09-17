@@ -51,6 +51,12 @@ void gemm(
     char, char, int m, int n, int k, real_t alpha, const real_t* A, int lda,
     const real_t* B, int ldb, real_t beta, real_t* C, int ldc);
 
+// y = alpha * A * x + beta * y
+template <typename real_t>
+void gemv(
+    char, int m, int n, real_t alpha, const real_t* A, int lda,
+    const real_t* x, int incx, real_t beta, real_t* y, int incy);
+
 // Compute eigenvalues and eigenvectors of the matrix m
 // Important: Eigenvectors are stored as row vectors in the original matrix m
 template <typename real_t>
@@ -97,5 +103,14 @@ template <> void gemm<float>(
 template <> void gemm<double>(
     char, char, int, int, int, double, const double*, int, const double*, int,
     double, double*, int);
+
+
+// gemv specializations for float and doubles
+template <> void gemv<float>(
+    char, int, int, float, const float*, int, const float*, int, float,
+    float*, int);
+template <> void gemv<double>(
+    char, int, int, double, const double*, int, const double*, int, double,
+    double*, int);
 
 #endif  // FAST_PCA_MATH_H_

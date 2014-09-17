@@ -32,62 +32,43 @@
 using std::vector;
 
 // ------------------------------------------------------------------------
-// ---- file_open: Open a file with the specified mode
+// ---- open_file: Open a file with the specified mode
 // ------------------------------------------------------------------------
-FILE* file_open(const char* fname, const char* mode);
+FILE* open_file(const char* fname, const char* mode);
+
+// ------------------------------------------------------------------------
+// ---- open_files: Open a list of files with the specified mode. If the
+// ---- list is empty, appends the selected standard file with the given
+// ---- name. Useful to read/write from/to multiple files.
+// ------------------------------------------------------------------------
+void open_files(
+    const char* mode, const char* stdname, FILE* stdfile, vector<string>* names,
+    vector<FILE*>* files);
 
 // -------------------------------------------------------------------
-// ---- read_row: read one data row from an ascii/binary file
+// ---- read_block: read one data row from an ascii/binary file
 // -------------------------------------------------------------------
 template <bool ascii, typename real_t>
-int read_row(FILE* file, int cols, real_t* x);
+int read_block(FILE* file, int n, real_t* x);
 
 // specialization of read_row function
-template <> int read_row<true, float>(FILE*, int, float*);
-template <> int read_row<false, float>(FILE*, int, float*);
-template <> int read_row<true, double>(FILE*, int, double*);
-template <> int read_row<false, double>(FILE*, int, double*);
+template <> int read_block<true, float>(FILE*, int, float*);
+template <> int read_block<false, float>(FILE*, int, float*);
+template <> int read_block<true, double>(FILE*, int, double*);
+template <> int read_block<false, double>(FILE*, int, double*);
 
 // -------------------------------------------------------------------
 // ---- write_row: write one data row to an ascii/binary file
 // -------------------------------------------------------------------
 template <bool ascii, typename real_t>
-void write_row(FILE* file, int cols, const real_t* m) {
+void write_block(FILE* file, int n, const real_t* m) {
   if (ascii) {
-    for (int c = 0; c < cols - 1; ++c) {
+    for (int c = 0; c < n - 1; ++c) {
       fprintf(file, "%.10g ", m[c]);
     }
-    fprintf(file, "%.10g\n", m[cols - 1]);
+    fprintf(file, "%.10g\n", m[n - 1]);
   } else {
-    fwrite(m, sizeof(real_t), cols, file);
-  }
-}
-
-
-// ------------------------------------------------------------------------
-// ---- read_matrix: read ascii/binary matrix from the given file
-// ------------------------------------------------------------------------
-template <bool ascii, typename real_t>
-void read_matrix(
-    const char* fname, FILE* file, int rows, int cols, real_t* m) {
-  int tc = 0;
-  for (int r = 0; r < rows &&
-           (tc = read_row<ascii, real_t>(file, cols, m)) == cols;
-       ++r, m += cols) {}
-  if (tc != 0 && tc != cols) {
-    fprintf(stderr, "ERROR: Corrupted matrix in \"%s\"!\n", fname);
-    exit(1);
-  }
-}
-
-
-// -------------------------------------------------------------------
-// ---- write_matrix: write a matrix to a ascii/binary file
-// -------------------------------------------------------------------
-template <bool ascii, typename real_t>
-void write_matrix(FILE* file, int rows, int cols, const real_t* m) {
-  for (int r = 0; r < rows; ++r) {
-    write_row<ascii, real_t>(file, cols, m + r * cols);
+    fwrite(m, sizeof(real_t), n, file);
   }
 }
 

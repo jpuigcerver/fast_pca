@@ -38,9 +38,26 @@ using std::vector;
 
 // Compute sufficient variables to compute the covariance matrix
 template <bool ascii, typename real_t>
-int compute_partial(FILE* file, int dims, real_t* C, real_t* S) {
-  vector<real_t> x(dims);
-  int d = 0, n = 0;
+int compute_partial(
+    FILE* file, int block_size, int dims, real_t* C, real_t* S) {
+  const vector<real_t> ones(block_size, 1);
+  vector<real_t> x(block_size * dims);
+  int d = 0, b = 0, n = 0;
+  do {
+    const int b = read_block<ascii, real_t>(file, block_size * dims, x.data());
+    if (b % dims != 0) {
+      fprintf(stderr, "ERROR: Corrupted data matrix!\n");
+      exit(1);
+    }
+    const int read_rows = b / dims;
+    // update covariance partial
+    gemm<real_t>(
+        'T', 'N', dims, read_rows, dims, 1, x.data(), rows, x.data(), dims,
+        1, C, dims);
+    // update mean partial
+    gemv<real_t>('T', dims, read_rows, 1, x.data(), read_rows,
+  } while(b == block_size);
+
   for (; (d = read_row<ascii, real_t>(file, dims, x.data())) == dims; ++n) {
     axpy<real_t>(dims, 1.0, x.data(), S);
     ger<real_t>(dims, dims, 1.0, x.data(), x.data(), C);

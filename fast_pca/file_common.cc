@@ -24,7 +24,7 @@
 
 #include "fast_pca/file_common.h"
 
-FILE* file_open(const char* fname, const char* mode) {
+FILE* open_file(const char* fname, const char* mode) {
   FILE* file = fopen(fname, mode);
   if (!file) {
     fprintf(
@@ -35,26 +35,39 @@ FILE* file_open(const char* fname, const char* mode) {
   return file;
 }
 
+void open_files(
+    const char* mode, const char* stdname, FILE* stdfile, vector<string>* names,
+    vector<FILE*>* files) {
+  if (names->empty()) {
+    names->push_back(stdname);
+    files->push_back(stdfile);
+  } else {
+    for (size_t f = 0; f < names->size(); ++f) {
+      files->push_back(open_file((*names)[f].c_str(), mode));
+    }
+  }
+}
+
 template <>
-int read_row<true, float>(FILE* file, int cols, float* x) {
+int read_block<true, float>(FILE* file, int n, float* x) {
   int c = 0;
-  for (; c < cols && fscanf(file, "%f", x + c) == 1; ++c) {}
+  for (; c < n && fscanf(file, "%f", x + c) == 1; ++c) {}
   return c;
 }
 
 template <>
-int read_row<true, double>(FILE* file, int cols, double* x) {
+int read_block<true, double>(FILE* file, int n, double* x) {
   int c = 0;
-  for (; c < cols && fscanf(file, "%lf", x + c) == 1; ++c) {}
+  for (; c < n && fscanf(file, "%lf", x + c) == 1; ++c) {}
   return c;
 }
 
 template <>
-int read_row<false, float>(FILE* file, int cols, float* x) {
-  return fread(x, sizeof(float), cols, file);
+int read_block<false, float>(FILE* file, int n, float* x) {
+  return fread(x, sizeof(float), n, file);
 }
 
 template <>
-int read_row<false, double>(FILE* file, int cols, double* x) {
-  return fread(x, sizeof(double), cols, file);
+int read_block<false, double>(FILE* file, int n, double* x) {
+  return fread(x, sizeof(double), n, file);
 }
