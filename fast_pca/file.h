@@ -61,17 +61,20 @@ void open_files(
 // ------------------------------------------------------------------------
 void close_files(const vector<FILE*>& files);
 
-template <int code>
+template <FORMAT_CODE code>
 int read_matrix_header(FILE* file, string* name, int* rows, int* cols);
 
-template <int code>
+template <FORMAT_CODE code>
 void write_matrix_header(FILE* file, const string& name, int rows, int cols);
 
-template <int code, typename real_t>
+template <FORMAT_CODE code, typename real_t>
 int read_block(FILE* file, int n, real_t* m);
 
-template <int code, typename real_t>
+template <FORMAT_CODE code, typename real_t>
 void write_block(FILE* file, int n, const real_t* m);
+
+template <FORMAT_CODE code, typename real_t>
+void write_matrix(FILE* file, int r, int c, const real_t* m);
 
 
 #endif  // FAST_PCA_FILE_H_

@@ -23,6 +23,7 @@
 */
 
 #include "fast_pca/file.h"
+#include "fast_pca/logging.h"
 
 FORMAT_CODE format_code_from_name(const string& name) {
   if (name == "ascii") {
@@ -40,12 +41,7 @@ FORMAT_CODE format_code_from_name(const string& name) {
 
 FILE* open_file(const char* fname, const char* mode) {
   FILE* file = fopen(fname, mode);
-  if (!file) {
-    fprintf(
-        stderr, "ERROR: Failed to open file \"%s\" with mode \"%s\"!\n",
-        fname, mode);
-    exit(1);
-  }
+  CHECK_MSG(file, "Failed to open file \"%s\" with mode \"%s\"!", fname, mode);
   return file;
 }
 

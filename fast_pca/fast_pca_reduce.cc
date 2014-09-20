@@ -33,7 +33,6 @@
 #include "fast_pca/file_pca.h"
 #include "fast_pca/pca.h"
 
-
 using std::string;
 using std::vector;
 
@@ -42,13 +41,15 @@ void help(const char* prog) {
       stderr,
       "Usage: %s [-d] [-o output] [input ...]\n"
       "Options:\n"
+      "  -c         do not compute eigenvalues; output co-moments instead\n"
       "  -d         use double precision\n"
       "  -o output  output file\n",
       prog);
 }
 
 template <typename real_t>
-void do_work(const vector<string>& input, const string& output) {
+void do_work(
+    const vector<string>& input, const string& output, bool compute_pca) {
   vector<real_t> M;  // global mean
   vector<real_t> C;  // global co-momentum
   vector<real_t> D;  // diff between the global mean and the file mean
@@ -79,35 +80,32 @@ void do_work(const vector<string>& input, const string& output) {
     }
     n += br;
   }
-  LOG("%d", n);
-  // convert comoment into covariance matrix
-  for (int i = 0; i < dims * dims; ++i) { C[i] /= (n - 1); }
-  // compute standard deviation in each dimension
-  vector<real_t> stddev(dims);
-  for (int i = 0; i < dims; ++i) { stddev[i] = sqrt(C[i * dims + i]); }
-  // compute eigenvectors and eigenvalues of the covariance matrix
-  // WARNING: This destroys the covariance matrix!
-  vector<real_t> eigval(dims);
-  eig<real_t>(dims, C.data(), eigval.data());
-  save_pca(output, dims, M, stddev, eigval, C);
-  /*
-  vector<real_t> stdev(dims);
-  vector<real_t> eigval(dims);
-  if (pca<real_t>(
-          processed_rows, dims, mean.data(), eigvec.data(), stdev.data(),
-          eigval.data()) != 0) {
-    fprintf(stderr, "ERROR: Failed to compute pca!\n");
-    exit(1);
+  if (compute_pca) {
+    // convert comoment into covariance matrix
+    for (int i = 0; i < dims * dims; ++i) { C[i] /= (n - 1); }
+    // compute standard deviation in each dimension
+    vector<real_t> stddev(dims);
+    for (int i = 0; i < dims; ++i) { stddev[i] = sqrt(C[i * dims + i]); }
+    // compute eigenvectors and eigenvalues of the covariance matrix
+    // WARNING: This destroys the covariance matrix!
+    vector<real_t> eigval(dims);
+    eig<real_t>(dims, C.data(), eigval.data());
+    save_pca(output, dims, M, stddev, eigval, C);
+  } else {
+    save_n_mean_cov(output, n, dims, M, C);
   }
-  save_pca<real_t>(output.c_str(), dims, mean, stdev, eigval, eigvec);*/
 }
 
 int main(int argc, char** argv) {
   int opt = -1;
-  bool simple = true;     // use simple precision ?
-  string output = "";     // output filename
-  while ((opt = getopt(argc, argv, "dho:")) != -1) {
+  bool simple = true;       // use simple precision ?
+  bool compute_pca = true;  // compute pca from the co-moments matrices
+  string output = "";       // output filename
+  while ((opt = getopt(argc, argv, "cdho:")) != -1) {
     switch (opt) {
+      case 'c':
+        compute_pca = false;
+        break;
       case 'd':
         simple = false;
         break;
@@ -136,9 +134,9 @@ int main(int argc, char** argv) {
   if (input.empty()) input.push_back("");
 
   if (simple) {
-    do_work<float>(input, output);
+    do_work<float>(input, output, compute_pca);
   } else {
-    do_work<double>(input, output);
+    do_work<double>(input, output, compute_pca);
   }
 
   return 0;

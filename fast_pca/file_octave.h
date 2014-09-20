@@ -25,6 +25,12 @@
 #ifndef FAST_PCA_FILE_OCTAVE_H_
 #define FAST_PCA_FILE_OCTAVE_H_
 
+#include <string>
+#include <vector>
+
+using std::string;
+using std::vector;
+
 int octave_read_scalar(FILE* file, string* name, int* v);
 void octave_write_scalar(FILE* file, const string& name, int n);
 

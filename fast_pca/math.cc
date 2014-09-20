@@ -126,8 +126,10 @@ template <> void gemm<double>(
 }
 
 void gemv_op(char* op) {
-  if (*op == 'N') *op = 'T';
-  else *op = 'N';
+  if (*op == 'N')
+    *op = 'T';
+  else
+    *op = 'N';
 }
 
 template <> void gemv<float>(
