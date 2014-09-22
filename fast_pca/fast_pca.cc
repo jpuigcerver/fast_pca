@@ -54,7 +54,7 @@ void help(const char* prog) {
       "  -f format  format of the data matrix (ascii, binary, text)\n"
       "  -j energy  minimum cumulative energy preserved\n"
       "  -m pca     file containing the pca information\n"
-      "  -n         don't normalize data\n"
+      "  -n         normalize data before projection\n"
       "  -o output  output data matrix\n"
       "  -p idim    data input dimensions\n"
       "  -q odim    data output dimensions\n",
@@ -113,7 +113,7 @@ void project_data(
   vector<FILE*> files;
   open_files("rb", "**stdin**", stdin, &input, &files);
   // process input headers
-  int expected_rows = 0;
+  int expected_rows = -1;
   for (size_t f = 0; f < files.size(); ++f) {
     const char* fname = input[f].c_str();
     FILE* file = files[f];
@@ -122,8 +122,10 @@ void project_data(
         !read_matrix_header<fmt>(file, NULL, &h_rows, &h_dims),
         "Invalid header in file \"%s\"!", fname);
     CHECK_MSG(
-        idim == h_dims, "Bad number of dimensions in file \"%s\"!", fname);
-    expected_rows += h_rows;
+        (h_dims < 1 || idim == h_dims),
+        "Bad number of dimensions in file \"%s\"!", fname);
+    if (expected_rows < 0) expected_rows = h_rows;
+    else expected_rows += h_rows;
   }
   FILE* output_file = stdout;
   if (output != "") { output_file = open_file(output.c_str(), "wb"); }
@@ -151,7 +153,7 @@ void project_data(
   }
   if (output != "") { fclose(output_file); }
   CHECK_MSG(
-      expected_rows == n,
+      (expected_rows < 1 || expected_rows == n),
       "Number of processed rows is lower than expected "
       "(expected: %d, processed: %d)!", expected_rows, n);
   fprintf(stderr, "---------------- Projection summary -----------------\n");
@@ -218,7 +220,7 @@ int main(int argc, char** argv) {
   int inp_dim = -1, out_dim = -1;
   int block = 1000;
   bool simple_precision = true;     // use simple precision ?
-  bool normalize_data = true;
+  bool normalize_data = false;
   string pca_fn = "";
   string output = "";
   double min_energy = -1.0;
@@ -242,7 +244,7 @@ int main(int argc, char** argv) {
         simple_precision = false;
         break;
       case 'n':
-        normalize_data = false;
+        normalize_data = true;
         break;
       case 'h':
         help(argv[0]);
