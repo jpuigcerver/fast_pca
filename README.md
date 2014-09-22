@@ -119,6 +119,9 @@ that it was used to write it. Plus, no byte-ordering assumptions are made, thus
 if you write a matrix in a machine working with Little-Endian ordering and then
 try to use it on a Big-Endian machine, ugly things will happen.
 
+In the aim of portability, I would not recommend this format unless you are
+dealing with huge data sets.
+
 #### Octave
 
 fast_pca supports the ASCII Octave file format. The file representing our
