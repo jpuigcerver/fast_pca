@@ -26,11 +26,12 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
-#include "fast_pca/file.h"
-#include "fast_pca/partial.h"
+#include "fast_pca/fast_pca.h"
+#include "fast_pca/logging.h"
 
 using std::string;
 using std::vector;
@@ -38,44 +39,57 @@ using std::vector;
 void help(const char* prog) {
   fprintf(
       stderr,
-      "Usage: %s [-d] [-p dim] [-f format] [input ...] output\n"
+      "Usage: %s [-b size] [-d] [-f format] [-o output] [-d dim] [input ...]\n"
       "Options:\n"
-      "  -d          use double precision\n"
-      "  -p dim      data dimensions\n"
-      "  -f format   format of the data matrix (ascii, binary, text)\n",
+      "  -b size    process data in batches of this number of rows\n"
+      "  -d         use double precision\n"
+      "  -f format  format of the data matrix\n"
+      "  -o output  output file\n"
+      "  -p dim     data dimensions\n",
       prog);
 }
 
-template <typename real_t>
-void do_work(
-    const string& format, int dims, const vector<string>& input,
-    const string& output) {
-  vector<real_t> m;
-  vector<real_t> c;
-  const int n = partial_cov_mean<real_t>(format, &dims, input, output, &m, &c);
-  partial::save_partial<real_t>(output.c_str(), n, dims, m, c);
+template <FORMAT_CODE fmt, typename real_t>
+void do_work(int block, int dims, string output, vector<string> input) {
+  int n;
+  vector<real_t> M;  // global mean
+  vector<real_t> C;  // global co-moments matrix
+  // compute mean and comoments matrix
+  compute_mean_comoments_from_inputs<fmt, real_t>(
+      block, input, &n, &dims, &M, &C);
+  // output number of processed rows, mean and co-moments matrix
+  save_n_mean_cov(output, n, dims, M, C);
 }
 
 int main(int argc, char** argv) {
   int opt = -1;
-  int dims = -1;           // number of dimensions
-  string format = "simple";  // input matrix format
-  bool simple = true;      // use simple precision ?
+  int dims = -1;             // number of dimensions
+  int block = 1000;          // block size
+  bool simple = true;        // use simple precision ?
+  string output = "";
+  FORMAT_CODE format = FMT_ASCII;
+  const char* format_str = NULL;
 
-  while ((opt = getopt(argc, argv, "d:f:o:sh")) != -1) {
+  while ((opt = getopt(argc, argv, "db:f:o:p:h")) != -1) {
     switch (opt) {
       case 'd':
         simple = false;
         break;
+      case 'b':
+        block = atoi(optarg);
+        CHECK_MSG(block > 0, "Block size must be positive (-b %d)!", block);
+        break;
       case 'f':
-        format = optarg;
+        format_str = optarg;
+        format = format_code_from_name(format_str);
+        CHECK_MSG(format != FMT_UNKNOWN, "Unknown format (-f \"%s\")!", optarg);
+        break;
+      case 'o':
+        output = optarg;
         break;
       case 'p':
         dims = atoi(optarg);
-        if (dims < 1) {
-          fprintf(stderr, "ERROR: Input dimension must be positive!\n");
-          exit(1);
-        }
+        CHECK_MSG(dims > 0, "Input dimensions must be positive (-p %d)!", dims);
         break;
       case 'h':
         help(argv[0]);
@@ -87,32 +101,46 @@ int main(int argc, char** argv) {
 
   fprintf(stderr, "-------------------- Command line -------------------\n");
   fprintf(stderr, "%s", argv[0]);
+  fprintf(stderr, " -b %d", block);
   if (!simple) fprintf(stderr, " -d");
-  if (format != "") fprintf(stderr, " -f \"%s\"", format.c_str());
+  if (format_str) fprintf(stderr, " -f \"%s\"", format_str);
+  if (output != "") fprintf(stderr, "-o %s", output.c_str());
   if (dims > 0) fprintf(stderr, " -p %d", dims);
   for (int a = optind; a < argc; ++a) {
     fprintf(stderr, " \"%s\"", argv[a]);
   }
   fprintf(stderr, "\n-----------------------------------------------------\n");
 
-  if (format != "simple" && format != "ascii" && format != "binary") {
-    fprintf(stderr, "ERROR: Unknown format!\n");
-    exit(1);
-  }
-
-  if (optind + 1 > argc) {
-    fprintf(stderr, "ERROR: You must specify an output file!\n");
-    exit(1);
-  }
-
-  const string& output = argv[argc - 1];
   vector<string> input;
-  for (int a = optind; a < argc - 1; ++a) { input.push_back(argv[a]); }
+  for (int a = optind; a < argc; ++a) { input.push_back(argv[a]); }
 
-  if (simple) {
-    do_work<float>(format, dims, input, output);
-  } else {
-    do_work<double>(format, dims, input, output);
+  switch (format) {
+    case FMT_ASCII:
+      if (simple)
+        do_work<FMT_ASCII, float>(block, dims, output, input);
+      else
+        do_work<FMT_ASCII, double>(block, dims, output, input);
+      break;
+    case FMT_BINARY:
+      if (simple)
+        do_work<FMT_BINARY, float>(block, dims, output, input);
+      else
+        do_work<FMT_BINARY, double>(block, dims, output, input);
+      break;
+    case FMT_OCTAVE:
+      if (simple)
+        do_work<FMT_OCTAVE, float>(block, dims, output, input);
+      else
+        do_work<FMT_OCTAVE, double>(block, dims, output, input);
+      break;
+    case FMT_VBOSCH:
+      if (simple)
+        do_work<FMT_VBOSCH, float>(block, dims, output, input);
+      else
+        do_work<FMT_VBOSCH, double>(block, dims, output, input);
+      break;
+    default:
+      ERROR("Not implemented for this format!");
   }
 
   return 0;

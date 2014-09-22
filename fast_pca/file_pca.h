@@ -28,61 +28,99 @@
 #include <string>
 #include <vector>
 
-#include "fast_pca/file_common.h"
+#include "fast_pca/file.h"
 #include "fast_pca/file_octave.h"
+#include "fast_pca/logging.h"
 
 using std::string;
 using std::vector;
 
 template <typename real_t>
+void save_n_mean_cov(
+    const string& fname, int n, int d, const vector<real_t>& m,
+    const vector<real_t>& c) {
+  FILE* out_f = stdout;
+  if (fname != "") { out_f = open_file(fname.c_str(), "w"); }
+  // write n
+  octave_write_scalar(out_f, "N", n);
+  // write m
+  write_matrix_header<FMT_OCTAVE>(out_f, "M", 1, d);
+  write_block<FMT_OCTAVE, real_t>(out_f, d, m.data());
+  // write c
+  write_matrix_header<FMT_OCTAVE>(out_f, "C", d, d);
+  write_matrix<FMT_OCTAVE, real_t>(out_f, d, d, c.data());
+  if (fname != "") { fclose(out_f); }
+}
+
+template <typename real_t>
+void load_n_mean_cov(
+    const string& fname, int* n, int* d, vector<real_t>* m,
+    vector<real_t>* c) {
+  FILE* file = stdin;
+  if (fname != "") { file = open_file(fname.c_str(), "rb"); }
+  string ts;
+  int tr = -1, tc = -1;
+  if (octave_read_scalar(file, &ts, &tr) || ts != "N" ||
+      (*n >= 0 && tr != *n)) {
+    ERROR("Failed to read scalar N in \"%s\"!", fname.c_str());
+  }
+  *n = tr;
+  if (octave_read_matrix(file, &ts, &tr, &tc, m) || ts != "M" ||
+      tr != 1 || (*d >= 0 && tc != *d)) {
+    ERROR("Failed to read matrix M in \"%s\"!", fname.c_str());
+  }
+  *d = tc;
+  if (octave_read_matrix(file, &ts, &tr, &tc, c) || ts != "C" ||
+      tr != *d || tc != *d) {
+    ERROR("Failed to read matrix C in \"%s\"!", fname.c_str());
+  }
+  if (fname != "") { fclose(file); }
+}
+
+template <typename real_t>
 void load_pca(
-    const char* fname, int* d, vector<real_t>* mean, vector<real_t>* stddev,
+    const string& fname, int* d, vector<real_t>* mean, vector<real_t>* stddev,
     vector<real_t>* eigval, vector<real_t>* eigvec) {
-  int one = 1;
-  FILE* file = file_open(fname, "r");
-  // means
-  string name = "M";
-  octave::read_matrix_header_ascii(fname, file, &name, &one, d);
-  mean->resize(*d);
-  read_matrix<true, real_t>(fname, file, one, *d, mean->data());
-  // standard deviations
-  name = "S";
-  octave::read_matrix_header_ascii(fname, file, &name, &one, d);
-  stddev->resize(*d);
-  read_matrix<true, real_t>(fname, file, one, *d, stddev->data());
-  // eigenvalues
-  name = "D";
-  octave::read_matrix_header_ascii(fname, file, &name, &one, d);
-  eigval->resize(*d);
-  read_matrix<true, real_t>(fname, file, one, *d, eigval->data());
-  // eigenvectors
-  name = "V";
-  octave::read_matrix_header_ascii(fname, file, &name, d, d);
-  eigvec->resize(*d);
-  read_matrix<true, real_t>(fname, file, *d, *d, eigvec->data());
-  fclose(file);
+  FILE* file = stdin;
+  if (fname != "") { file = open_file(fname.c_str(), "rb"); }
+  string ts;
+  int tr = -1, tc = -1;
+  CHECK_MSG(
+      !octave_read_matrix(file, &ts, &tr, &tc, mean) && ts == "M" && tr == 1 &&
+      (*d < 1 || tc == *d), "Failed to read M in \"%s\"!", fname.c_str());
+  *d = tc;
+  CHECK_MSG(
+      !octave_read_matrix(file, &ts, &tr, &tc, stddev) && ts == "S" &&
+      tr == 1 && tc == *d, "Failed to read S in \"%s\"!", fname.c_str());
+  CHECK_MSG(
+      !octave_read_matrix(file, &ts, &tr, &tc, eigval) && ts == "D" &&
+      tr == 1 && tc == *d, "Failed to read D in \"%s\"!", fname.c_str());
+  CHECK_MSG(
+      !octave_read_matrix(file, &ts, &tr, &tc, eigvec) && ts == "V" &&
+      tr == *d && tc == *d, "Failed to read V in \"%s\"!", fname.c_str());
+  if (fname != "") { fclose(file); }
 }
 
 template <typename real_t>
 void save_pca(
-    const char* fname, int d, const vector<real_t>& mean,
+    const string& fname, int d, const vector<real_t>& mean,
     const vector<real_t>& stddev, const vector<real_t>& eigval,
     const vector<real_t>& eigvec) {
   FILE* file = stdout;
-  if (fname != NULL) { file = file_open(fname, "w"); }
-  // means
-  octave::write_matrix_header_ascii(fname, file, "M", 1, d);
-  write_row<true, real_t>(file, d, mean.data());
-  // standard deviations
-  octave::write_matrix_header_ascii(fname, file, "S", 1, d);
-  write_row<true, real_t>(file, d, stddev.data());
-  // eigenvalues
-  octave::write_matrix_header_ascii(fname, file, "D", 1, d);
-  write_row<true, real_t>(file, d, eigval.data());
-  // eigenvectors
-  octave::write_matrix_header_ascii(fname, file, "V", d, d);
-  write_matrix<true, real_t>(file, d, d, eigvec.data());
-  if (fname != NULL) { fclose(file); }
+  if (fname != "") file = open_file(fname.c_str(), "wb");
+  // write mean
+  write_matrix_header<FMT_OCTAVE>(file, "M", 1, d);
+  write_block<FMT_OCTAVE, real_t>(file, d, mean.data());
+  // write standard deviation
+  write_matrix_header<FMT_OCTAVE>(file, "S", 1, d);
+  write_block<FMT_OCTAVE, real_t>(file, d, stddev.data());
+  // write eigenvalues
+  write_matrix_header<FMT_OCTAVE>(file, "D", 1, d);
+  write_block<FMT_OCTAVE, real_t>(file, d, eigval.data());
+  // write eigenvectors
+  write_matrix_header<FMT_OCTAVE>(file, "V", d, d);
+  write_matrix<FMT_OCTAVE, real_t>(file, d, d, eigvec.data());
+  if (fname != "") fclose(file);
 }
 
 #endif  // FAST_PCA_FILE_PCA_H_

@@ -25,46 +25,23 @@
 #ifndef FAST_PCA_FILE_OCTAVE_H_
 #define FAST_PCA_FILE_OCTAVE_H_
 
-#include <cstdio>
 #include <string>
 #include <vector>
-
-#include "fast_pca/file_common.h"
 
 using std::string;
 using std::vector;
 
-namespace octave {
-
-void read_matrix_header_ascii(
-    const char* fname, FILE* file, string* name, int* rows, int* cols);
-void write_matrix_header_ascii(
-    const char* fname, FILE* file, const string& name, int rows, int cols);
-
-void read_scalar_ascii(const char* fname, FILE* file, string* name, int* v);
-void write_scalar_ascii(
-    const char* fname, FILE* file, const string& name, int n);
+int octave_read_scalar(FILE* file, string* name, int* v);
+void octave_write_scalar(FILE* file, const string& name, int n);
 
 template <typename real_t>
-void save_ascii(const char* fname, int rows, int cols, const real_t* m) {
-  FILE* file = file_open(fname, "w");
-  write_matrix_header_ascii(fname, file, "", rows, cols);
-  write_matrix<true, real_t>(file, rows, cols, m);
-  fclose(file);
+int octave_read_matrix(
+    FILE* file, string* name, int* r, int* c, vector<real_t>* m) {
+  if (read_matrix_header<FMT_OCTAVE>(file, name, r, c) ||
+      *r <= 0 || *c <= 0) return 1;
+  const int s = (*r) * (*c);
+  m->resize(s);
+  return (read_block<FMT_OCTAVE, real_t>(file, s, m->data()) != s);
 }
-
-template <typename real_t>
-void load_ascii(
-    const char* fname, int* rows, int* cols, vector<real_t>* m) {
-  FILE* file = file_open(fname, "r");
-  string name;
-  read_matrix_header_ascii(fname, file, &name, rows, cols);
-  m->resize((*rows) * (*cols));
-  read_matrix<true, real_t>(fname, file, rows, *cols, m->data());
-  fclose(file);
-}
-
-}  // namespace octave
-
 
 #endif  // FAST_PCA_FILE_OCTAVE_H_

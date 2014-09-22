@@ -10,7 +10,7 @@ A fast and memory efficient Principal Components Analysis software.
   can do this work in parallel using a Mapreduce approach.
 
   fast_pca uses BLAS + LAPACK to perform the required matrix operations
-  efficiently. CMake 2.8 can detect several vendors implementing these 
+  efficiently. CMake 2.8 can detect several vendors implementing these
   interfaces like ATLAS, Goto, Intel MKL and many others.
 
 
@@ -28,21 +28,21 @@ A fast and memory efficient Principal Components Analysis software.
 
 
 ### Minimum requirements
-- C++ Compiler with capability for C++11. I tested with GCC 4.8.3 on 
+- C++ Compiler with capability for C++11. I tested with GCC 4.8.3 on
 GNU/Linux and Clang 503.0.40 on Mac OS X.
 - CMake 2.8
-- LAPACK distribution. CMake will try detect automatically which LAPACK 
-distributions you have installed. If you have more than one, you can set 
-the CMake variable BLA_VENDOR to your favourite one. I tested the software 
-with the generic Netlib LAPACK implementation, ATLAS and 
+- LAPACK distribution. CMake will try detect automatically which LAPACK
+distributions you have installed. If you have more than one, you can set
+the CMake variable BLA_VENDOR to your favourite one. I tested the software
+with the generic Netlib LAPACK implementation, ATLAS and
 Mac OS X Accelerate framework.
 
 ### Installation
-1. Download and unzip or clone the fast_pca repository into your 
+1. Download and unzip or clone the fast_pca repository into your
 local machine.
-2. Create a "build" directory in "fast_pca" directory: 
+2. Create a "build" directory in "fast_pca" directory:
 ```mkdir -p fast_pca/build && cd fast_pca/build```
-3. Configure cmake: 
+3. Configure cmake:
 ```cmake ..```
 4. Compile and install:
 ```make && make install```
@@ -52,10 +52,10 @@ local machine.
 - Compute mean, standard deviation and eigenvalues and eigenvectors of a
 matrix:
 ```
-fast_pca -C -m pca.mat A.mat
+fast_pca -C A.mat > pca.mat
 ```
-This will generate a file containing 3 vectors (the mean M, the standard 
-deviation S and the eigenvalues D) and a matrix (the eigenvalues V). The
+This will generate a file containing 3 vectors (the mean M, the standard
+deviation S and the eigenvalues D) and a matrix (the eigenvectors V). The
 file is in the same format used by Octave.
 
 The input data matrix can also be read from stdin.
@@ -63,7 +63,7 @@ The input data matrix can also be read from stdin.
 - Project a matrix into a lower-dimensional space:
 ```
 fast_pca -P -m pca.mat -q 2 A.mat > A.2d.mat
-``` 
+```
 fast_pca reads the PCA data file and projects the data matrix A.mat into a
 two-dimensional space. The resulting data is stored into A.2d.mat.
 
@@ -81,10 +81,75 @@ data will be print on the standard output.
 
 
 ### Matrix formats:
-- Data samples are represented by row-vectors. Matrices are read and 
-stored in row-major order.
-- For an M x N matrix A, the default format (called "simple") is an ASCII 
-file with the following format:
+
+For all formats, data samples are represented by row-vectors. Matrices are
+read from the file and stored in memory assuming row-major order (all elements
+from a given row are continuous).
+
+I will assume from now on that your data matrix is an M x N matrix named A.
+
+#### ASCII
+
+This is the default format used by fast_pca and it consits only of the sequence
+of rows which compose your data represented in ASCII characters. Elements of
+the matrix are separated by whitespaces (one or many). Usually, one would
+represent the different rows by different lines, but this is only optional.
+
+Observe that since no header information is given regarding the number of
+dimensions (columns) of your data, you will need to give that information
+to the program through the -p option. By default, elements are read as
+simple precision numbers, but you can interpret them as double (with -d).
+
+```
+A(1,1) A(1,2) ... A(1,N)
+A(2,1) A(2,2) ... A(2,N)
+...
+A(M,1) A(M,2) ... A(M,N)
+```
+
+#### Binary
+
+If you are working with very big datasets, ASCII representations may not be
+convinient. The Binary format reads/writes all the matrix values in row-major
+order into a file, with no header information.
+
+Same as before, you will need to indicate the number of columns through the
+-p option. Also, you also need to read the file using the same precision
+that it was used to write it. Plus, no byte-ordering assumptions are made, thus
+if you write a matrix in a machine working with Little-Endian ordering and then
+try to use it on a Big-Endian machine, ugly things will happen.
+
+In the aim of portability, I would not recommend this format unless you are
+dealing with huge data sets.
+
+#### Octave
+
+fast_pca supports the ASCII Octave file format. The file representing our
+previous MxN-matrix A, would be:
+
+```
+# name: A
+# type: matrix
+# rows: M
+# columns: N
+A(1,1) A(1,2) ... A(1,N)
+A(2,1) A(2,2) ... A(2,N)
+...
+A(M,1) A(M,2) ... A(M,N)
+```
+
+The name of a matrix is an optional field (actually, fast_pca just ignores it).
+Also, the header may be preceeded with other comment lines and they will be
+ignored. However, note that the relative ordering between the "type", "rows"
+and "columns" must be maintained, and the "columns" field must be the last
+comment line before the matrix data.
+
+#### VBosch
+
+This format was used by other PRHLT tools and was added for backward
+compatibility. The structure is very similar to the ASCII format, but adding
+a header line indicating the number of rows and columns of the data matrix.
+
 ```
 M N
 A(1,1) A(1,2) ... A(1,N)
@@ -92,9 +157,3 @@ A(2,1) A(2,2) ... A(2,N)
 ...
 A(M,1) A(M,2) ... A(M,N)
 ```
-- Two additional formats which omit the header information are supported: 
-"ascii" and "binary". In the binary version, the raw data matrix is stored. 
-Observe that, when reading such matrices, you will need to specify the 
-number of dimensions (columns) and the precision (simple vs. double) of 
-the numeric data. These formats are convinient when reading streams of 
-data, where the number of rows is not know in advance.

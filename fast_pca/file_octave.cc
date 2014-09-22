@@ -22,15 +22,13 @@
   SOFTWARE.
 */
 
-#include "fast_pca/file_octave.h"
+#include "fast_pca/file.h"
 
 #include <sstream>
 #include <string>
 
 using std::istringstream;
 using std::string;
-
-namespace octave {
 
 template <typename T>
 bool read_keyword(FILE* file, const string& key, T* val) {
@@ -79,59 +77,17 @@ bool read_keyword(FILE* file, const string& key, T* val) {
   return false;
 }
 
-void read_matrix_header_ascii(
-    const char* fname, FILE* file, string* name, int* rows, int* cols) {
-  int tr = -1, tc = -1;
-  string tn, tm;
-  if (!read_keyword(file, "name", &tn) ||
-      !read_keyword(file, "type", &tm) ||
-      !read_keyword(file, "rows", &tr) ||
-      !read_keyword(file, "columns", &tc)) {
-    fprintf(stderr, "ERROR: Bad Octave ASCII header in \"%s\"!\n", fname);
-    exit(1);
-  }
-  if (tm != "matrix") {
-    fprintf(
-        stderr, "ERROR: Ivalid matrix type: \"%s\" (expected: \"matrix\")!\n",
-        tm.c_str());
-    exit(1);
-  }
-  if (*name != "" && tn != *name) {
-    fprintf(
-        stderr, "ERROR: Wrong matrix name: \"%s\" (expected: \"%s\")!\n",
-        tn.c_str(), name->c_str());
-  }
-  if ((*rows > 0 && *rows != tr) || (*cols > 0 && *cols != tc)) {
-    fprintf(stderr, "ERROR: Wrong matrix size read from \"%s\"!\n", fname);
-    exit(1);
-  }
-  *rows = tr;
-  *cols = tc;
-  *name = tn;
+template <> int read_matrix_header<FMT_OCTAVE>(
+    FILE* file, string* name, int* rows, int* cols) {
+  string type;
+  return !((name == NULL || read_keyword(file, "name", name)) &&
+           (read_keyword(file, "type", &type) && type == "matrix") &&
+           read_keyword(file, "rows", rows) &&
+           read_keyword(file, "columns", cols));
 }
 
-void read_scalar_ascii(
-    const char* fname, FILE* file, string* name, int* v) {
-  string tn, tm;
-  if (!read_keyword(file, "name", &tn) ||
-      !read_keyword(file, "type", &tm) ||
-      fscanf(file, "%d", v) != 1) {
-    fprintf(stderr, "ERROR: Bad Octave ASCII scalar in \"%s\"!\n", fname);
-    exit(1);
-  }
-  if (tm != "scalar") {
-    fprintf(stderr, "ERROR: Invalid scalar type: \"%s\"!\n", tm.c_str());
-    exit(1);
-  }
-  if (*name != "" && tn != *name) {
-    fprintf(
-        stderr, "ERROR: Wrong matrix name: \"%s\" (expected: \"%s\")!\n",
-        tn.c_str(), name->c_str());
-  }
-}
-
-void write_matrix_header_ascii(
-    const char* fname, FILE* file, const string& name, int rows, int cols) {
+template <> void write_matrix_header<FMT_OCTAVE>(
+    FILE* file, const string& name, int rows, int cols) {
   if (name != "") {
     fprintf(file, "# name: %s\n", name.c_str());
   }
@@ -140,13 +96,57 @@ void write_matrix_header_ascii(
   fprintf(file, "# columns: %d\n", cols);
 }
 
-void write_scalar_ascii(
-    const char* fname, FILE* file, const string& name, int n) {
-  if (name != "") {
-    fprintf(file, "# name: %s\n", name.c_str());
+template <>
+int read_block<FMT_OCTAVE, float>(FILE* file, int n, float* m) {
+  int i = 0;
+  for (; i < n && fscanf(file, "%f", m + i) == 1; ++i) { }
+  return i;
+}
+
+template <>
+int read_block<FMT_OCTAVE, double>(FILE* file, int n, double* m) {
+  int i = 0;
+  for (; i < n && fscanf(file, "%lf", m + i) == 1; ++i) { }
+  return i;
+}
+
+template <>
+void write_block<FMT_OCTAVE, float>(FILE* file, int n, const float* m) {
+  for (int i = 0; i < n - 1; ++i) fprintf(file, "%.12g ", m[i]);
+  fprintf(file, "%.12g\n", m[n - 1]);
+}
+
+template <>
+void write_block<FMT_OCTAVE, double>(FILE* file, int n, const double* m) {
+  for (int i = 0; i < n - 1; ++i) fprintf(file, "%.12g ", m[i]);
+  fprintf(file, "%.12g\n", m[n - 1]);
+}
+
+template <>
+void write_matrix<FMT_OCTAVE, float>(
+    FILE* file, int rows, int cols, const float* m) {
+  for (int r = 0; r < rows; ++r) {
+    write_block<FMT_OCTAVE, float>(file, cols, m + r * cols);
   }
+}
+
+template <>
+void write_matrix<FMT_OCTAVE, double>(
+    FILE* file, int rows, int cols, const double* m) {
+  for (int r = 0; r < rows; ++r) {
+    write_block<FMT_OCTAVE, double>(file, cols, m + r * cols);
+  }
+}
+
+int octave_read_scalar(FILE* file, string* name, int* v) {
+  string type;
+  return !((name == NULL || read_keyword(file, "name", name)) &&
+           (read_keyword(file, "type", &type) && type == "scalar") &&
+           fscanf(file, "%d", v) == 1);
+}
+
+void octave_write_scalar(FILE* file, const string& name, int n) {
+  fprintf(file, "# name: %s\n", name.c_str());
   fprintf(file, "# type: scalar\n");
   fprintf(file, "%d\n", n);
 }
-
-}  // namespace octave

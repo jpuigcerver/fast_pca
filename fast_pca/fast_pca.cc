@@ -24,14 +24,17 @@
 
 #include <getopt.h>
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
 #include <vector>
 
 #include "fast_pca/file.h"
-#include "fast_pca/partial.h"
+#include "fast_pca/file_pca.h"
 #include "fast_pca/pca.h"
+#include "fast_pca/fast_pca.h"
+#include "fast_pca/logging.h"
 
 using std::accumulate;
 using std::min;
@@ -46,114 +49,50 @@ void help(const char* prog) {
       "Options:\n"
       "  -C         compute pca from data\n"
       "  -P         project data using computed pca\n"
+      "  -b size    process data in batches of this number of rows\n"
       "  -d         use double precision\n"
-      "  -s         don't normalize data\n"
-      "  -p idim    data input dimensions\n"
-      "  -q odim    data output dimensions\n"
-      "  -j energy  minimum cumulative energy preserved\n"
       "  -f format  format of the data matrix (ascii, binary, text)\n"
+      "  -j energy  minimum cumulative energy preserved\n"
       "  -m pca     file containing the pca information\n"
-      "  -o output  output data matrix\n",
+      "  -n         don't normalize data\n"
+      "  -o output  output data matrix\n"
+      "  -p idim    data input dimensions\n"
+      "  -q odim    data output dimensions\n",
       prog);
 }
 
-template <typename real_t>
+
+template <FORMAT_CODE fmt, typename real_t>
 void compute_pca(
-    const string& format, const vector<string>& input, int* dims,
+    vector<string> input, int block, int* dims,
     vector<real_t>* eigval, vector<real_t>* eigvec, vector<real_t>* mean,
-    vector<real_t>* stdev) {
-  const bool ascii = (format == "binary" ? false : true);
-  // open input files
-  vector<FILE*> input_files;
-  if (input.size() == 0) { input_files.push_back(stdin); }
-  for (size_t f = 0; f < input.size(); ++f) {
-    FILE* file = fopen(input[f].c_str(), format == "binary" ? "rb" : "r");
-    if (!file) {
-      fprintf(stderr, "ERROR: Failed to open file \"%s\"!\n", input[f].c_str());
-      exit(1);
-    }
-    input_files.push_back(file);
+    vector<real_t>* stddev) {
+  int n = 0;
+  // process input to compute mean and co-moments
+  compute_mean_comoments_from_inputs<fmt, real_t>(
+      block, input, &n, dims, mean, eigvec);
+  // compute covariance from co-moments
+  CHECK_MSG(n > 1, "You need at least 2 data points (%d processed)!", n);
+  for (int i = 0; i < (*dims) * (*dims); ++i) {
+    (*eigvec)[i] /= (n - 1);
   }
-  // number of expected rows in each input file
-  vector<int> expect_rows(input_files.size(), -1);
-  // number of processed rows in each input file
-  vector<int> process_rows(input_files.size(), 0);
-  // read input headers
-  if (format == "simple") {
-    for (size_t f = 0; f < input_files.size(); ++f) {
-      FILE* file = input_files[f];
-      const char* fname = (file == stdin ? "**stdin**" : input[f].c_str());
-      simple::read_header_ascii(fname, file, &expect_rows[f], dims);
-    }
-  } else if (*dims < 1) {
-    fprintf(stderr, "ERROR: You must specify the input dimensions!\n");
-    exit(1);
+  // compute standard deviation in each dimension
+  stddev->resize(*dims);
+  for (int i = 0; i < (*dims); ++i) {
+    (*stddev)[i] = sqrt((*eigvec)[i * (*dims) + i]);
   }
-  // Allocate memory for the results.
-  // Take into account that the "mean" and "eigvec" will store partial results.
-  mean->resize(*dims, 0);
-  stdev->resize(*dims, 0);
-  eigval->resize(*dims, 0);
-  eigvec->resize(*dims * *dims, 0);
-  // TODO(jpuigcerver): this can run in parallel
-  for (size_t f = 0; f < input_files.size(); ++f) {
-    FILE* file = input_files[f];
-    const char* fname = (file == stdin ? "**stdin**" : input[f].c_str());
-    // compute partial results
-    process_rows[f] = ascii ?
-        compute_partial<true, real_t>(
-            file, (*dims), eigvec->data(), mean->data()) :
-        compute_partial<false, real_t>(
-            file, (*dims), eigvec->data(), mean->data());
-    if (process_rows[f] < 0 ||
-        (expect_rows[f] > 0 && process_rows[f] != expect_rows[f])) {
-      fprintf(stderr, "ERROR: Corrupted matrix file \"%s\"!\n", fname);
-      exit(1);
-    }
-  }
-  // total number of processed rows
-  const int N = accumulate(process_rows.begin(), process_rows.end(), 0);
-  if (N < 2) {
-    fprintf(stderr, "ERROR: Number of data rows is too small!\n");
-    exit(1);
-  }
-  // compute pca
-  if (pca<real_t>(
-          N, *dims, mean->data(), eigvec->data(), stdev->data(),
-          eigval->data()) != 0) {
-    fprintf(stderr, "ERROR: Failed to compute PCA!\n");
-    exit(1);
-  }
-  // compute energy quantiles
-  // (how many dimensions you need to preserve % of energy)
-  const double quant_val[] = {0.25, 0.5, 0.75, 1.0};
-  int quant_dim[] = {*dims, *dims, *dims, *dims};
-  const double total_energy = accumulate(eigval->begin(), eigval->end(), 0.0);
-  double cum_energy = 0.0;
-  for (int i = 0, q = 0; i < *dims && q < 4; ++i) {
-    cum_energy += (*eigval)[i];
-    for (; q < 4 && cum_energy >= total_energy * quant_val[q]; ++q) {
-      quant_dim[q] = i + 1;
-    }
-  }
-  fprintf(stderr, "-------------------- PCA summary --------------------\n");
-  fprintf(stderr, "Processed rows: %d\n", N);
-  fprintf(stderr, "Input dimension: %d\n", *dims);
-  fprintf(
-      stderr,
-      "Energy quantiles: 25%% -> %d, 50%% -> %d, 75%% -> %d, 100%% -> %d\n",
-      quant_dim[0], quant_dim[1], quant_dim[2], quant_dim[3]);
-  fprintf(stderr, "-----------------------------------------------------\n");
+  // compute eigenvectors and eigenvalues of the covariance matrix
+  // WARNING: This destroys the covariance matrix!
+  eigval->resize(*dims);
+  CHECK(eig<real_t>(*dims, eigvec->data(), eigval->data()) == 0);
 }
 
-template <typename real_t>
+template <FORMAT_CODE fmt, typename real_t>
 void project_data(
-    const string& format,
-    const vector<real_t>& eigval, const vector<real_t>& eigvec,
-    const vector<real_t>& mean, const vector<real_t>& stdev,
-    const vector<string>& input, const string& output, int idim, int odim,
-    double min_energy, bool normalize_data) {
-  const bool ascii = (format == "binary" ? false : true);
+    vector<string> input, const string& output, int block, int idim, int odim,
+    int min_energy, bool normalize_data, const vector<real_t>& mean,
+    const vector<real_t>& stddev, const vector<real_t>& eigval,
+    const vector<real_t>& eigvec) {
   // compute cumulative energy preserved and (optionally) output dimension
   const double total_energy = accumulate(eigval.begin(), eigval.end(), 0.0);
   double cum_energy = -1.0;
@@ -169,78 +108,54 @@ void project_data(
     cum_energy = min(cum_energy / total_energy, 1.0);
   }
   // check input and output dimensions
-  if (idim < odim) {
-    fprintf(stderr, "ERROR: Invalid output dimension (%d > %d)!\n", odim, idim);
-    exit(1);
-  }
+  CHECK_MSG(odim <= idim, "Invalid output dimension!");
   // open input files
-  vector<FILE*> input_files;
-  if (input.size() == 0) { input_files.push_back(stdin); }
-  for (size_t f = 0; f < input.size(); ++f) {
-    FILE* file = fopen(input[f].c_str(), format == "binary" ? "rb" : "r");
-    if (!file) {
-      fprintf(stderr, "ERROR: Failed to open file \"%s\"!\n", input[f].c_str());
-      exit(1);
-    }
-    input_files.push_back(file);
+  vector<FILE*> files;
+  open_files("rb", "**stdin**", stdin, &input, &files);
+  // process input headers
+  int expected_rows = 0;
+  for (size_t f = 0; f < files.size(); ++f) {
+    const char* fname = input[f].c_str();
+    FILE* file = files[f];
+    int h_rows = -1, h_dims = -1;
+    CHECK_MSG(
+        !read_matrix_header<fmt>(file, NULL, &h_rows, &h_dims),
+        "Invalid header in file \"%s\"!", fname);
+    CHECK_MSG(
+        idim == h_dims, "Bad number of dimensions in file \"%s\"!", fname);
+    expected_rows += h_rows;
   }
-  // open output file
   FILE* output_file = stdout;
-  if (output != "" && !(output_file = fopen(
-          output.c_str(), format == "binary" ? "wb" : "w"))) {
-    fprintf(stderr, "ERROR: Failed to open file \"%s\"!\n", output.c_str());
-    exit(1);
-  }
-  // process MAT headers
-  if (format == "simple") {
-    // input headers
-    int total_rows = 0;
-    for (size_t f = 0; f < input_files.size(); ++f) {
-      FILE* file = input_files[f];
-      const char* fname = (file == stdin ? "**stdin**" : input[f].c_str());
-      int file_rows = -1;
-      simple::read_header_ascii(fname, file, &file_rows, &idim);
-      total_rows += file_rows;
+  if (output != "") { output_file = open_file(output.c_str(), "wb"); }
+  write_matrix_header<fmt>(output_file, "", expected_rows, odim);
+  // ----- process input files -----
+  vector<real_t> x(block * idim, 0);  // data block
+  int n = 0;  // total processed rows
+  for (size_t f = 0; f < files.size(); ++f) {
+    const char* fname = input[f].c_str();
+    FILE* file = files[f];
+    int fr = 0, be = 0, br = 0;
+    while ((be = read_block<fmt, real_t>(file, block * idim, x.data())) > 0) {
+      CHECK_MSG(be % idim == 0, "Corrupted matrix in file \"%s\"!", fname);
+      br = be / idim;
+      fr += br;
+      // project input data using pca. WARNING: destroys the original data!
+      project<real_t>(
+          br, idim, odim, eigvec.data(), mean.data(),
+          normalize_data ? stddev.data() : NULL, x.data());
+      // output the computed data
+      write_matrix<fmt, real_t>(output_file, br, odim, x.data());
+      // update total number of processed rows
+      n += br;
     }
-    // output header
-    fprintf(output_file, "%d %d\n", total_rows, odim);
   }
-  // process input files
-  int processed_rows = 0;
-  for (size_t f = 0; f < input_files.size(); ++f) {
-    FILE* file = input_files[f];
-    const char* fname = (file == stdin ? "**stdin**" : input[f].c_str());
-    vector<real_t> x(idim);
-    while (1) {
-      // read data row
-      const int tcols = ascii ?
-          read_row<true, real_t>(file, idim, x.data()) :
-          read_row<false, real_t>(file, idim, x.data());
-      if (tcols == 0) break;
-      else if (tcols != idim) {
-        fprintf(stderr, "ERROR: Corrupted matrix in file \"%s\"!\n", fname);
-        exit(1);
-      }
-      // project data row
-      if (project(
-              1, idim, odim, eigvec.data(), mean.data(),
-              normalize_data ? stdev.data() : NULL, x.data()) != 0) {
-        fprintf(
-            stderr, "ERROR: Projection failed in file \"%s\"!\n", fname);
-        exit(1);
-      }
-      // output projected data
-      if (ascii) {
-        write_row<true, real_t>(output_file, odim, x.data());
-      } else {
-        write_row<false, real_t>(output_file, odim, x.data());
-      }
-      ++processed_rows;
-    }
-    fclose(file);
-  }
+  if (output != "") { fclose(output_file); }
+  CHECK_MSG(
+      expected_rows == n,
+      "Number of processed rows is lower than expected "
+      "(expected: %d, processed: %d)!", expected_rows, n);
   fprintf(stderr, "---------------- Projection summary -----------------\n");
-  fprintf(stderr, "Processed rows: %d\n", processed_rows);
+  fprintf(stderr, "Processed rows: %d\n", n);
   fprintf(stderr, "Input dimension: %d\n", idim);
   fprintf(stderr, "Output dimension: %d\n", odim);
   fprintf(stderr, "Preserved energy: %.4g%%\n", cum_energy * 100.0);
@@ -248,49 +163,70 @@ void project_data(
 }
 
 template <typename real_t>
+void pca_summary(int dims, const vector<real_t>& eigval) {
+  const double total_energy = accumulate(eigval.begin(), eigval.end(), 0.0);
+  // compute energy quantiles
+  // (how many dimensions you need to preserve % of energy)
+  const double quant_val[] = {0.25, 0.5, 0.75, 1.0};
+  int quant_dim[] = {dims, dims, dims, dims};
+  double cum_energy = 0.0;
+  for (int i = 0, q = 0; i < dims && q < 4; ++i) {
+    cum_energy += eigval[i];
+    for (; q < 4 && cum_energy >= total_energy * quant_val[q]; ++q) {
+      quant_dim[q] = i + 1;
+    }
+  }
+  fprintf(
+      stderr,
+      "-------------------- PCA summary --------------------\n"
+      "Input dimension: %d\n"
+      "Energy quantiles: 25%% -> %d, 50%% -> %d, 75%% -> %d, 100%% -> %d\n"
+      "-----------------------------------------------------\n",
+      dims, quant_dim[0], quant_dim[1], quant_dim[2], quant_dim[3]);
+}
+
+template <FORMAT_CODE fmt, typename real_t>
 void do_work(
     const bool do_compute_pca, const bool do_project_data,
-    const string& format, const string& pca_fn, const vector<string>& input,
-    const string& output, int inp_dim, int out_dim, double min_energy,
-    bool normalize_data) {
+    const string& pca_fn, const vector<string>& input,
+    const string& output, int block, int inp_dim, int out_dim,
+    double min_energy, bool normalize_data) {
   vector<real_t> mean;
   vector<real_t> stdev;
   vector<real_t> eigval;
   vector<real_t> eigvec;
   if (do_compute_pca) {
-    compute_pca<real_t>(
-        format, input, &inp_dim, &eigval, &eigvec, &mean, &stdev);
-    if (pca_fn != "") {
-      save_pca<real_t>(pca_fn.c_str(), inp_dim, mean, stdev, eigval, eigvec);
-    } else if (!do_project_data || output != "") {
-      save_pca<real_t>(NULL, inp_dim, mean, stdev, eigval, eigvec);
+    compute_pca<fmt, real_t>(
+        input, block, &inp_dim, &eigval, &eigvec, &mean, &stdev);
+    if (!do_project_data || pca_fn != "" || output != "") {
+      save_pca<real_t>(pca_fn, inp_dim, mean, stdev, eigval, eigvec);
     }
   } else {
-    if (pca_fn == "") {
-      fprintf(stderr, "ERROR: Projection requires pca file (-m)!\n");
-      exit(1);
-    }
-    load_pca<real_t>(pca_fn.c_str(), &inp_dim, &mean, &stdev, &eigval, &eigvec);
+    CHECK_MSG(pca_fn != "", "Specify a pca file to load from!");
+    load_pca<real_t>(pca_fn, &inp_dim, &mean, &stdev, &eigval, &eigvec);
   }
+  pca_summary(inp_dim, eigval);
   if (do_project_data) {
-    project_data<real_t>(
-        format, eigval, eigvec, mean, stdev, input, output, inp_dim, out_dim,
-        min_energy, normalize_data);
+    project_data<fmt, real_t>(
+        input, output, block, inp_dim, out_dim, min_energy, normalize_data,
+        mean, stdev, eigval, eigvec);
   }
 }
 
 int main(int argc, char** argv) {
   int opt = -1;
   int inp_dim = -1, out_dim = -1;
+  int block = 1000;
   bool simple_precision = true;     // use simple precision ?
   bool normalize_data = true;
-  string format = "simple";
   string pca_fn = "";
   string output = "";
   double min_energy = -1.0;
   bool do_compute_pca = false;
   bool do_project_data = false;
-  while ((opt = getopt(argc, argv, "CPdshf:j:m:o:p:q:")) != -1) {
+  FORMAT_CODE format = FMT_ASCII;
+  const char* format_str = NULL;
+  while ((opt = getopt(argc, argv, "CPb:df:hj:m:no:p:q:")) != -1) {
     switch (opt) {
       case 'C':
         do_compute_pca = true;
@@ -298,30 +234,29 @@ int main(int argc, char** argv) {
       case 'P':
         do_project_data = true;
         break;
+      case 'b':
+        block = atoi(optarg);
+        CHECK_MSG(block > 0, "Block size must be positive (-b %d)!", block);
+        break;
       case 'd':
         simple_precision = false;
         break;
-      case 's':
+      case 'n':
         normalize_data = false;
         break;
       case 'h':
         help(argv[0]);
         return 0;
       case 'f':
-        format = optarg;
-        if (format != "simple" && format != "ascii" && format != "binary") {
-          fprintf(
-              stderr, "ERROR: Wrong matrix format: \"%s\"!\n", format.c_str());
-          exit(1);
-        }
+        format_str = optarg;
+        format = format_code_from_name(format_str);
+        CHECK_MSG(format != FMT_UNKNOWN, "Unknown format (-f \"%s\")!", optarg);
         break;
       case 'j':
         min_energy = atof(optarg);
-        if (min_energy <= 0.0 || min_energy > 1.0) {
-          fprintf(
-              stderr, "ERROR: Invalid minimum cumulative energy: %f!\n",
-              min_energy);
-        }
+        CHECK_MSG(
+            min_energy >= 0.0 && min_energy <= 1.0,
+            "Invalid minimum cumulative energy (-j %f)!", min_energy);
         break;
       case 'm':
         pca_fn = optarg;
@@ -331,17 +266,13 @@ int main(int argc, char** argv) {
         break;
       case 'p':
         inp_dim = atoi(optarg);
-        if (inp_dim < 1) {
-          fprintf(stderr, "ERROR: Input dimension must be positive!\n");
-          exit(1);
-        }
+        CHECK_MSG(
+            inp_dim > 0, "Input dimension must be positive (-p %d)!", inp_dim);
         break;
       case 'q':
         out_dim = atoi(optarg);
-        if (out_dim < 1) {
-          fprintf(stderr, "ERROR: Output dimension must be positive!\n");
-          exit(1);
-        }
+        CHECK_MSG(
+            out_dim > 0, "Output dimension must be positive (-q %d)!", out_dim);
         break;
       default:
         return 1;
@@ -361,7 +292,7 @@ int main(int argc, char** argv) {
   if (inp_dim > 0) fprintf(stderr, " -p %d", inp_dim);
   if (out_dim > 0) fprintf(stderr, " -q %d", out_dim);
   if (min_energy > 0) fprintf(stderr, " -j %g", min_energy);
-  if (format != "") fprintf(stderr, " -f \"%s\"", format.c_str());
+  if (format_str) fprintf(stderr, " -f \"%s\"", format_str);
   if (pca_fn != "") fprintf(stderr, " -m \"%s\"", pca_fn.c_str());
   if (output != "") fprintf(stderr, " -o \"%s\"", output.c_str());
   for (int a = optind; a < argc; ++a) {
@@ -377,18 +308,57 @@ int main(int argc, char** argv) {
     input.push_back(argv[a]);
   }
   // when reading from stdin, we cannot process data twice!
-  if (do_compute_pca && do_project_data && input.size() == 0) {
-    fprintf(stderr, "ERROR: When reading from stdin, use either -C or -P!\n");
-    exit(1);
-  }
-  if (simple_precision) {
-    do_work<float>(
-        do_compute_pca, do_project_data, format, pca_fn, input, output,
-        inp_dim, out_dim, min_energy, normalize_data);
-  } else {
-    do_work<double>(
-        do_compute_pca, do_project_data, format, pca_fn, input, output,
-        inp_dim, out_dim, min_energy, normalize_data);
+  CHECK_MSG(
+      !do_compute_pca || !do_project_data || input.size() > 0,
+      "Use either -C or -P when reading from stdin!");
+
+  switch (format) {
+    case FMT_ASCII:
+      if (simple_precision) {
+        do_work<FMT_ASCII, float>(
+            do_compute_pca, do_project_data, pca_fn, input,
+            output, block, inp_dim, out_dim, min_energy, normalize_data);
+      } else {
+        do_work<FMT_ASCII, double>(
+            do_compute_pca, do_project_data, pca_fn, input,
+            output, block, inp_dim, out_dim, min_energy, normalize_data);
+      }
+      break;
+    case FMT_BINARY:
+      if (simple_precision) {
+        do_work<FMT_OCTAVE, float>(
+            do_compute_pca, do_project_data, pca_fn, input,
+            output, block, inp_dim, out_dim, min_energy, normalize_data);
+      } else {
+        do_work<FMT_OCTAVE, double>(
+            do_compute_pca, do_project_data, pca_fn, input,
+            output, block, inp_dim, out_dim, min_energy, normalize_data);
+      }
+      break;
+    case FMT_OCTAVE:
+      if (simple_precision) {
+        do_work<FMT_OCTAVE, float>(
+            do_compute_pca, do_project_data, pca_fn, input,
+            output, block, inp_dim, out_dim, min_energy, normalize_data);
+      } else {
+        do_work<FMT_OCTAVE, double>(
+            do_compute_pca, do_project_data, pca_fn, input,
+            output, block, inp_dim, out_dim, min_energy, normalize_data);
+      }
+      break;
+    case FMT_VBOSCH:
+      if (simple_precision) {
+        do_work<FMT_VBOSCH, float>(
+            do_compute_pca, do_project_data, pca_fn, input,
+            output, block, inp_dim, out_dim, min_energy, normalize_data);
+      } else {
+        do_work<FMT_VBOSCH, double>(
+            do_compute_pca, do_project_data, pca_fn, input,
+            output, block, inp_dim, out_dim, min_energy, normalize_data);
+      }
+      break;
+    default:
+      ERROR("Not implemented for this format!");
   }
 
   return 0;

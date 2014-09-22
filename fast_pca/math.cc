@@ -37,6 +37,10 @@ extern "C" {
               int*, const float*, int*, float*, float*, int*);
   void dgemm_(char*, char*, int*, int*, int*, double*, const double*,
               int*, const double*, int*, double*, double*, int*);
+  void sgemv_(char*, int*, int*, float*, const float*, int*, const float*,
+              int*, float*, float*, int*);
+  void dgemv_(char*, int*, int*, double*, const double*, int*, const double*,
+              int*, double*, double*, int*);
 }
 
 template <> void axpy<float>(
@@ -90,20 +94,18 @@ template <> int syev<double>(int n, double* a, double* w) {
 }
 
 void gemm_op(char* opA, char* opB) {
-  char TA, TB;
+  char TA = 'N', TB = 'N';
   // determine op(B) in col-major order
   if (*opA == 'T') {
     TB = 'T';
   } else if (*opA == 'C') {
     TB = 'C';
-  } else { TB = 'N'; }
+  }
   // determine op(A) in col-major order
   if (*opB == 'T') {
     TA = 'T';
   } else if (*opB == 'C') {
     TA = 'C';
-  } else {
-    TA = 'N';
   }
   *opA = TA;
   *opB = TB;
@@ -121,4 +123,25 @@ template <> void gemm<double>(
     int lda, const double* B, int ldb, double beta, double* C, int ldc) {
   gemm_op(&opA, &opB);
   dgemm_(&opA, &opB, &n, &m, &k, &alpha, B, &ldb, A, &lda, &beta, C, &ldc);
+}
+
+void gemv_op(char* op) {
+  if (*op == 'N')
+    *op = 'T';
+  else
+    *op = 'N';
+}
+
+template <> void gemv<float>(
+    char op, int m, int n, float alpha, const float* A, int lda,
+    const float* x, int incx, float beta, float* y, int incy) {
+  gemv_op(&op);
+  sgemv_(&op, &n, &m, &alpha, A, &lda, x, &incx, &beta, y, &incy);
+}
+
+template <> void gemv<double>(
+    char op, int m, int n, double alpha, const double* A, int lda,
+    const double* x, int incx, double beta, double* y, int incy) {
+  gemv_op(&op);
+  dgemv_(&op, &n, &m, &alpha, A, &lda, x, &incx, &beta, y, &incy);
 }

@@ -1,0 +1,16 @@
+# Created by Octave 3.8.1, Mon Sep 22 09:16:39 2014 CEST <jpuigcerver@kai>
+# name: M
+# type: matrix
+# rows: 1
+# columns: 2
+ 1 3
+
+
+# name: S
+# type: matrix
+# rows: 2
+# columns: 2
+ 7.252598738571413 3.759488349081749
+ 3.759488349081749 3.206598529318803
+
+
