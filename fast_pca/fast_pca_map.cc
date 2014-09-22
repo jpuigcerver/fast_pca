@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
   int block = 1000;          // block size
   bool simple = true;        // use simple precision ?
   string output = "";
-  FORMAT_CODE format = FMT_VBOSCH;
+  FORMAT_CODE format = FMT_ASCII;
   const char* format_str = NULL;
 
   while ((opt = getopt(argc, argv, "db:f:o:p:h")) != -1) {

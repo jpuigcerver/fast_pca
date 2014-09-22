@@ -224,7 +224,7 @@ int main(int argc, char** argv) {
   double min_energy = -1.0;
   bool do_compute_pca = false;
   bool do_project_data = false;
-  FORMAT_CODE format = FMT_VBOSCH;
+  FORMAT_CODE format = FMT_ASCII;
   const char* format_str = NULL;
   while ((opt = getopt(argc, argv, "CPb:df:hj:m:no:p:q:")) != -1) {
     switch (opt) {

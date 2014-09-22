@@ -52,8 +52,9 @@ void compute_mean_comoments_from_inputs(
         !read_matrix_header<fmt>(file, NULL, &h_rows, &h_dims) &&
         (*dims < 0 || h_dims != *dims),
         "Wrong header in matrix file \"%s\"!", fname);
-    *dims = h_dims;
+    if (*dims < 0) { *dims = h_dims; }
   }
+  CHECK_MSG(*dims > 0, "Number of dimensions couldn't be determined!");
   vector<real_t> x(block * (*dims), 0);  // data block
   vector<real_t> m(*dims, 0);            // mean of the current block
   vector<real_t> d(*dims, 0);            // diff between global and block mean
