@@ -50,14 +50,14 @@ int read_block<FMT_VBOSCH, double>(FILE* file, int n, double* m) {
 
 template <>
 void write_block<FMT_VBOSCH, float>(FILE* file, int n, const float* m) {
-  for (int i = 0; i < n - 1; ++i) fprintf(file, "%.12g ", m[i]);
-  fprintf(file, "%.12g\n", m[n - 1]);
+  for (int i = 0; i < n - 1; ++i) fprintf(file, "%.16g ", m[i]);
+  fprintf(file, "%.16g\n", m[n - 1]);
 }
 
 template <>
 void write_block<FMT_VBOSCH, double>(FILE* file, int n, const double* m) {
-  for (int i = 0; i < n - 1; ++i) fprintf(file, "%.12g ", m[i]);
-  fprintf(file, "%.12g\n", m[n - 1]);
+  for (int i = 0; i < n - 1; ++i) fprintf(file, "%.16g ", m[i]);
+  fprintf(file, "%.16g\n", m[n - 1]);
 }
 
 template <>

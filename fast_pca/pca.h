@@ -63,6 +63,7 @@ int eig(int n, real_t* m, real_t* w) {
   return 0;
 }
 
+
 // n -> (input) number of data samples
 // p -> (input) input data dimension
 // q -> (input) output data dimension
