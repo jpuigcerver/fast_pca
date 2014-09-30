@@ -97,8 +97,8 @@ represent the different rows by different lines, but this is only optional.
 
 Observe that since no header information is given regarding the number of
 dimensions (columns) of your data, you will need to give that information
-to the program through the -p option. By default, elements are read as
-simple precision numbers, but you can interpret them as double (with -d).
+to the program through the ```-p``` option. By default, elements are read as
+simple precision numbers, but you can interpret them as double (with ```-d```).
 
 ```
 A(1,1) A(1,2) ... A(1,N)
@@ -114,7 +114,7 @@ convinient. The Binary format reads/writes all the matrix values in row-major
 order into a file, with no header information.
 
 Same as before, you will need to indicate the number of columns through the
--p option. Also, you also need to read the file using the same precision
+```-p``` option. Also, you also need to read the file using the same precision
 that it was used to write it. Plus, no byte-ordering assumptions are made, thus
 if you write a matrix in a machine working with Little-Endian ordering and then
 try to use it on a Big-Endian machine, ugly things will happen.
@@ -157,3 +157,18 @@ A(2,1) A(2,2) ... A(2,N)
 ...
 A(M,1) A(M,2) ... A(M,N)
 ```
+
+### Disclaimer
+
+You must be aware that fast_pca computes the covariance matrix in order to
+obtain the principal components of your data matrix. However, take into
+account that computing the covariance matrix can introduce numerical errors.
+
+There are safer methods to perform PCA, which use the Singular Value
+Decomposition (SVD) of your data matrix. Unfortunately, I am not aware of any
+method to compute the SVD of a matrix with a single pass, thus I
+decided to use the covariance matrix to perform the PCA, instead of handling
+directly the data matrix.
+
+If you are worried about numerical stability, use double precision at all times
+with the  ```-d``` option and you will (probably) be safe.
