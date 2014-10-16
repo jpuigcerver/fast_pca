@@ -51,7 +51,7 @@ void help(const char* prog) {
       "  -P         project data using computed pca\n"
       "  -b size    process data in batches of this number of rows\n"
       "  -d         use double precision\n"
-      "  -f format  format of the data matrix (ascii, binary, text)\n"
+      "  -f format  format of the data matrix (ascii, binary, octave, vbosch)\n"
       "  -j energy  minimum cumulative energy preserved\n"
       "  -m pca     file containing the pca information\n"
       "  -n         normalize data before projection\n"

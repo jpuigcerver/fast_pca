@@ -43,7 +43,7 @@ void help(const char* prog) {
       "Options:\n"
       "  -b size    process data in batches of this number of rows\n"
       "  -d         use double precision\n"
-      "  -f format  format of the data matrix\n"
+      "  -f format  format of the data matrix (ascii, binary, octave, vbosch)\n"
       "  -o output  output file\n"
       "  -p dim     data dimensions\n",
       prog);
