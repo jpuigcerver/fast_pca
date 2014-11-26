@@ -83,18 +83,18 @@ void compute_mean_comoments_from_inputs(
       // update co-moments matrix
       // C += (x - m)' * (x - m)
       gemm<real_t>(
-          'T', 'N', *dims, *dims, br, 1, x.data(), *dims, x.data(), *dims, 1.0,
+          'T', 'N', *dims, *dims, br, 1, x.data(), *dims, x.data(), *dims, 1,
           C->data(), *dims);
       // C += D * D' * (br * n) / (br + n)
-      ger<real_t>(
-          *dims, *dims, (1.0 * br) * (*n) / ((*n) + br), d.data(), d.data(),
-          C->data());
+      const int nn = *n + br;
+      const real_t cf = br * ((*n) / (1.0 * nn));
+      ger<real_t>(*dims, *dims, cf, d.data(), d.data(), C->data());
       // update mean
       for (int i = 0; i < *dims; ++i) {
-        (*M)[i] = ((*n) * (*M)[i] + br * m[i]) / ((*n) + br);
+        (*M)[i] = ((*n) * (*M)[i] + br * m[i]) / nn;
       }
       // update total number of processed rows
-      *n += br;
+      *n = nn;
     }
   }
   // close input files
