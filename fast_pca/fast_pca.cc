@@ -44,7 +44,7 @@ using std::vector;
 void help(const char* prog) {
   fprintf(
       stderr,
-      "Usage: %s [-C] [-P] [-d] [-s] [-p idim] [-q odim] [-j energy] "
+      "Usage: %s [-C] [-P] [-d] [-n] [-p idim] [-q odim] [-j energy] "
       "[-f format] [-m pca] [-o output] [input ...]\n"
       "Options:\n"
       "  -C         compute pca from data\n"
@@ -290,7 +290,7 @@ int main(int argc, char** argv) {
   if (do_compute_pca) fprintf(stderr, " -C");
   if (do_project_data) fprintf(stderr, " -P");
   if (!simple_precision) fprintf(stderr, " -d");
-  if (!normalize_data) fprintf(stderr, " -s");
+  if (normalize_data) fprintf(stderr, " -n");
   if (inp_dim > 0) fprintf(stderr, " -p %d", inp_dim);
   if (out_dim > 0) fprintf(stderr, " -q %d", out_dim);
   if (min_energy > 0) fprintf(stderr, " -j %g", min_energy);
