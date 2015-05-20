@@ -39,17 +39,19 @@ using std::vector;
 void help(const char* prog) {
   fprintf(
       stderr,
-      "Usage: %s [-d] [-o output] [input ...]\n"
+      "Usage: %s [-d] [-e dim] [-o output] [input ...]\n"
       "Options:\n"
       "  -c         do not compute eigenvalues; output co-moments instead\n"
       "  -d         use double precision\n"
+      "  -e dim     exclude first (positive) or last (negative) dimensions\n"
       "  -o output  output file\n",
       prog);
 }
 
 template <typename real_t>
 void do_work(
-    const vector<string>& input, const string& output, bool compute_pca) {
+    const vector<string>& input, const string& output, bool compute_pca,
+    int exclude_dims) {
   vector<real_t> M;  // global mean
   vector<real_t> C;  // global co-momentum
   vector<real_t> D;  // diff between the global mean and the file mean
@@ -81,6 +83,9 @@ void do_work(
     n += br;
   }
   if (compute_pca) {
+    CHECK_MSG(dims >= exclude_dims,
+              "Dimensions to exclude (%d) is bigger than the data "
+              "dimensions (%d)!", exclude_dims, dims);
     // convert comoment into covariance matrix
     for (int i = 0; i < dims * dims; ++i) { C[i] /= (n - 1); }
     // compute standard deviation in each dimension
@@ -88,9 +93,21 @@ void do_work(
     for (int i = 0; i < dims; ++i) { stddev[i] = sqrt(C[i * dims + i]); }
     // compute eigenvectors and eigenvalues of the covariance matrix
     // WARNING: This destroys the covariance matrix!
-    vector<real_t> eigval(dims);
-    eig<real_t>(dims, C.data(), eigval.data());
-    save_pca(output, dims, M, stddev, eigval, C);
+    const int eff_dims = dims - abs(exclude_dims);
+    vector<real_t> eigval(eff_dims);
+    if (eff_dims > 0) {
+      real_t* C_offset = exclude_dims <= 0 ? C.data() :
+          C.data() + exclude_dims * dims + exclude_dims;
+      eig<real_t>(eff_dims, dims, C_offset, eigval.data());
+      // Move all eigenvectors to the first rows
+      for (int r = 0; r < eff_dims; ++r) {
+        for (int d = 0; d < eff_dims; ++d) {
+          C[r * eff_dims + d] = C_offset[r * dims + d];
+        }
+      }
+    }
+    C.resize(eff_dims * eff_dims);
+    save_pca(output, dims, exclude_dims, M, stddev, eigval, C);
   } else {
     save_n_mean_cov(output, n, dims, M, C);
   }
@@ -100,14 +117,18 @@ int main(int argc, char** argv) {
   int opt = -1;
   bool simple = true;       // use simple precision ?
   bool compute_pca = true;  // compute pca from the co-moments matrices
+  int exclude_dims = 0;     // exclude these first/last dimensions from PCA
   string output = "";       // output filename
-  while ((opt = getopt(argc, argv, "cdho:")) != -1) {
+  while ((opt = getopt(argc, argv, "cde:ho:")) != -1) {
     switch (opt) {
       case 'c':
         compute_pca = false;
         break;
       case 'd':
         simple = false;
+        break;
+      case 'e':
+        exclude_dims = atoi(optarg);
         break;
       case 'h':
         help(argv[0]);
@@ -123,6 +144,7 @@ int main(int argc, char** argv) {
   fprintf(stderr, "-------------------- Command line -------------------\n");
   fprintf(stderr, "%s", argv[0]);
   if (!simple) fprintf(stderr, " -d");
+  if (exclude_dims) fprintf(stderr, " -e %d", exclude_dims);
   if (output != "") fprintf(stderr, " -o \"%s\"", output.c_str());
   for (int a = optind; a < argc; ++a) {
     fprintf(stderr, " \"%s\"", argv[a]);
@@ -134,9 +156,9 @@ int main(int argc, char** argv) {
   if (input.empty()) input.push_back("");
 
   if (simple) {
-    do_work<float>(input, output, compute_pca);
+    do_work<float>(input, output, compute_pca, exclude_dims);
   } else {
-    do_work<double>(input, output, compute_pca);
+    do_work<double>(input, output, compute_pca, exclude_dims);
   }
 
   return 0;

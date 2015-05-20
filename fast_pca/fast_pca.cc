@@ -73,6 +73,9 @@ void compute_pca(
   // process input to compute mean and co-moments
   compute_mean_comoments_from_inputs<fmt, real_t>(
       block, input, &n, dims, mean, eigvec);
+  CHECK_MSG(*dims >= exclude_dims,
+            "Dimensions to exclude (%d) is bigger than the data "
+            "dimensions (%d)!", exclude_dims, *dims);
   // compute covariance from co-moments
   CHECK_MSG(n > 1, "You need at least 2 data points (%d processed)!", n);
   for (int i = 0; i < (*dims) * (*dims); ++i) {
@@ -87,16 +90,18 @@ void compute_pca(
   // only the eigenvalues and eigenvectors of the submatrix obtained after
   // removing the first/last `exclude_dims' rows and columns.
   const int eff_dims = *dims - abs(exclude_dims);
-  real_t* eigvec_offset = exclude_dims <= 0 ? eigvec->data() :
-      eigvec->data() + exclude_dims * (*dims) + exclude_dims;
   // compute eigenvectors and eigenvalues of the covariance matrix
   // WARNING: This destroys the covariance matrix!
   eigval->resize(eff_dims);
-  CHECK(eig<real_t>(eff_dims, *dims, eigvec_offset, eigval->data()) == 0);
-  // Move all eigenvectors to the first rows
-  for (int r = 0; r < eff_dims; ++r) {
-    for (int d = 0; d < eff_dims; ++d) {
-      (*eigvec)[r * eff_dims + d] = eigvec_offset[r * (*dims) + d];
+  if (eff_dims > 0) {
+    real_t* eigvec_offset = exclude_dims <= 0 ? eigvec->data() :
+        eigvec->data() + exclude_dims * (*dims) + exclude_dims;
+    CHECK(eig<real_t>(eff_dims, *dims, eigvec_offset, eigval->data()) == 0);
+    // Move all eigenvectors to the first rows
+    for (int r = 0; r < eff_dims; ++r) {
+      for (int d = 0; d < eff_dims; ++d) {
+        (*eigvec)[r * eff_dims + d] = eigvec_offset[r * (*dims) + d];
+      }
     }
   }
   eigvec->resize(eff_dims * eff_dims);
