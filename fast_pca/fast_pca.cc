@@ -38,19 +38,21 @@
 
 using std::accumulate;
 using std::min;
+using std::max;
 using std::string;
 using std::vector;
 
 void help(const char* prog) {
   fprintf(
       stderr,
-      "Usage: %s [-C] [-P] [-d] [-n] [-p idim] [-q odim] [-j energy] "
-      "[-f format] [-m pca] [-o output] [input ...]\n"
+      "Usage: %s [-C] [-P] [-b size] [-d] [-e dim] [-f format] [-j energy] "
+      "[-m pca] [-n] [-o output] [-p idim] [-q odim] [input ...]\n"
       "Options:\n"
       "  -C         compute pca from data\n"
       "  -P         project data using computed pca\n"
       "  -b size    process data in batches of this number of rows\n"
       "  -d         use double precision\n"
+      "  -e dim     exclude first (positive) or last (negative) dimensions\n"
       "  -f format  format of the data matrix (ascii, binary, octave, vbosch)\n"
       "  -j energy  minimum cumulative energy preserved\n"
       "  -m pca     file containing the pca information\n"
@@ -64,10 +66,10 @@ void help(const char* prog) {
 
 template <FORMAT_CODE fmt, typename real_t>
 void compute_pca(
-    vector<string> input, int block, int* dims,
+    vector<string> input, int block, int exclude_dims, int* dims,
     vector<real_t>* eigval, vector<real_t>* eigvec, vector<real_t>* mean,
     vector<real_t>* stddev) {
-  int n = 0;
+  int n = 0;  // number of data samples
   // process input to compute mean and co-moments
   compute_mean_comoments_from_inputs<fmt, real_t>(
       block, input, &n, dims, mean, eigvec);
@@ -81,30 +83,52 @@ void compute_pca(
   for (int i = 0; i < (*dims); ++i) {
     (*stddev)[i] = sqrt((*eigvec)[i * (*dims) + i]);
   }
+  // Up to here, we have the whole covariance matrix. But we will compute
+  // only the eigenvalues and eigenvectors of the submatrix obtained after
+  // removing the first/last `exclude_dims' rows and columns.
+  const int eff_dims = *dims - abs(exclude_dims);
+  real_t* eigvec_offset = exclude_dims <= 0 ? eigvec->data() :
+      eigvec->data() + exclude_dims * (*dims) + exclude_dims;
   // compute eigenvectors and eigenvalues of the covariance matrix
   // WARNING: This destroys the covariance matrix!
-  eigval->resize(*dims);
-  CHECK(eig<real_t>(*dims, eigvec->data(), eigval->data()) == 0);
+  eigval->resize(eff_dims);
+  CHECK(eig<real_t>(eff_dims, *dims, eigvec_offset, eigval->data()) == 0);
+  // Move all eigenvectors to the first rows
+  for (int r = 0; r < eff_dims; ++r) {
+    for (int d = 0; d < eff_dims; ++d) {
+      (*eigvec)[r * eff_dims + d] = eigvec_offset[r * (*dims) + d];
+    }
+  }
+  eigvec->resize(eff_dims * eff_dims);
 }
 
 template <FORMAT_CODE fmt, typename real_t>
 void project_data(
     vector<string> input, const string& output, int block, int idim, int odim,
-    int min_energy, bool normalize_data, const vector<real_t>& mean,
-    const vector<real_t>& stddev, const vector<real_t>& eigval,
-    const vector<real_t>& eigvec) {
+    int exclude_dims, double min_energy, bool normalize_data,
+    const vector<real_t>& mean, const vector<real_t>& stddev,
+    const vector<real_t>& eigval, const vector<real_t>& eigvec) {
+  CHECK_MSG(idim > 0, "Invalid input dimension!");
+  CHECK_MSG(odim > 0 || min_energy > 0.0,
+            "Specify output dimensions or minimum energy!");
+  CHECK_MSG(odim < 0 || odim >= exclude_dims,
+        "Number of output dimensions (%d) is lower than the number of "
+        "excluded dimensions from PCA (%d)!", odim, exclude_dims);
   // compute cumulative energy preserved and (optionally) output dimension
   const double total_energy = accumulate(eigval.begin(), eigval.end(), 0.0);
-  double cum_energy = -1.0;
+  double cum_energy = 0.0;
   if (odim > 0) {
-    cum_energy =
-        accumulate(eigval.begin(), eigval.begin() + odim, 0.0) / total_energy;
+    cum_energy = accumulate(
+        eigval.begin(), eigval.begin() + odim - abs(exclude_dims), 0.0);
+    cum_energy /= total_energy;
   } else {
-    cum_energy = eigval[0];
-    for (odim = 1; odim < idim && (cum_energy / total_energy < min_energy);
-         ++odim) {
+    cum_energy = 0.0;
+    for (odim = 0; odim < idim - abs(exclude_dims) &&
+             (cum_energy / total_energy < min_energy); ++odim) {
       cum_energy += eigval[odim];
     }
+    odim += abs(exclude_dims);
+    odim = max(odim, 1);
     cum_energy = min(cum_energy / total_energy, 1.0);
   }
   // check input and output dimensions
@@ -132,6 +156,7 @@ void project_data(
   write_matrix_header<fmt>(output_file, "", expected_rows, odim);
   // ----- process input files -----
   vector<real_t> x(block * idim, 0);  // data block
+  vector<real_t> b(block * idim, 0);  // auxiliar data block
   int n = 0;  // total processed rows
   for (size_t f = 0; f < files.size(); ++f) {
     const char* fname = input[f].c_str();
@@ -143,8 +168,8 @@ void project_data(
       fr += br;
       // project input data using pca. WARNING: destroys the original data!
       project<real_t>(
-          br, idim, odim, eigvec.data(), mean.data(),
-          normalize_data ? stddev.data() : NULL, x.data());
+          br, idim, odim, exclude_dims, eigvec.data(), mean.data(),
+          normalize_data ? stddev.data() : NULL, x.data(), b.data());
       // output the computed data
       write_matrix<fmt, real_t>(output_file, br, odim, x.data());
       // update total number of processed rows
@@ -165,14 +190,15 @@ void project_data(
 }
 
 template <typename real_t>
-void pca_summary(int dims, const vector<real_t>& eigval) {
+void pca_summary(int inp_dims, int exclude_dims, const vector<real_t>& eigval) {
+  const int eff_dims = inp_dims - abs(exclude_dims);
   const double total_energy = accumulate(eigval.begin(), eigval.end(), 0.0);
   // compute energy quantiles
   // (how many dimensions you need to preserve % of energy)
   const double quant_val[] = {0.25, 0.5, 0.75, 1.0};
-  int quant_dim[] = {dims, dims, dims, dims};
+  int quant_dim[] = {eff_dims, eff_dims, eff_dims, eff_dims};
   double cum_energy = 0.0;
-  for (int i = 0, q = 0; i < dims && q < 4; ++i) {
+  for (int i = 0, q = 0; i < eff_dims && q < 4; ++i) {
     cum_energy += eigval[i];
     for (; q < 4 && cum_energy >= total_energy * quant_val[q]; ++q) {
       quant_dim[q] = i + 1;
@@ -181,10 +207,12 @@ void pca_summary(int dims, const vector<real_t>& eigval) {
   fprintf(
       stderr,
       "-------------------- PCA summary --------------------\n"
-      "Input dimension: %d\n"
+      "Input dimensions: %d\n"
+      "Excluded dimensions: %d\n"
       "Energy quantiles: 25%% -> %d, 50%% -> %d, 75%% -> %d, 100%% -> %d\n"
       "-----------------------------------------------------\n",
-      dims, quant_dim[0], quant_dim[1], quant_dim[2], quant_dim[3]);
+      inp_dims, exclude_dims, quant_dim[0], quant_dim[1], quant_dim[2],
+      quant_dim[3]);
 }
 
 template <FORMAT_CODE fmt, typename real_t>
@@ -192,32 +220,39 @@ void do_work(
     const bool do_compute_pca, const bool do_project_data,
     const string& pca_fn, const vector<string>& input,
     const string& output, int block, int inp_dim, int out_dim,
-    double min_energy, bool normalize_data) {
+    double min_energy, bool normalize_data, int exclude_dims) {
   vector<real_t> mean;
   vector<real_t> stdev;
   vector<real_t> eigval;
   vector<real_t> eigvec;
   if (do_compute_pca) {
     compute_pca<fmt, real_t>(
-        input, block, &inp_dim, &eigval, &eigvec, &mean, &stdev);
+        input, block, exclude_dims, &inp_dim, &eigval, &eigvec, &mean, &stdev);
     if (!do_project_data || pca_fn != "" || output != "") {
-      save_pca<real_t>(pca_fn, inp_dim, mean, stdev, eigval, eigvec);
+      save_pca<real_t>(
+          pca_fn, inp_dim, exclude_dims, mean, stdev, eigval, eigvec);
     }
   } else {
     CHECK_MSG(pca_fn != "", "Specify a pca file to load from!");
-    load_pca<real_t>(pca_fn, &inp_dim, &mean, &stdev, &eigval, &eigvec);
+    if (exclude_dims != 0) {
+      WARN("Ignoring \"-e %d\": excluded dimensions will be read from the "
+           "pca file...", exclude_dims);
+    }
+    load_pca<real_t>(
+        pca_fn, &inp_dim, &exclude_dims, &mean, &stdev, &eigval, &eigvec);
   }
-  pca_summary(inp_dim, eigval);
+  pca_summary(inp_dim, exclude_dims, eigval);
   if (do_project_data) {
     project_data<fmt, real_t>(
-        input, output, block, inp_dim, out_dim, min_energy, normalize_data,
-        mean, stdev, eigval, eigvec);
+        input, output, block, inp_dim, out_dim, exclude_dims, min_energy,
+        normalize_data, mean, stdev, eigval, eigvec);
   }
 }
 
 int main(int argc, char** argv) {
   int opt = -1;
   int inp_dim = -1, out_dim = -1;
+  int exclude_dims = 0;
   int block = 1000;
   bool simple_precision = true;     // use simple precision ?
   bool normalize_data = false;
@@ -228,7 +263,7 @@ int main(int argc, char** argv) {
   bool do_project_data = false;
   FORMAT_CODE format = FMT_ASCII;
   const char* format_str = NULL;
-  while ((opt = getopt(argc, argv, "CPb:df:hj:m:no:p:q:")) != -1) {
+  while ((opt = getopt(argc, argv, "CPb:de:f:hj:m:no:p:q:")) != -1) {
     switch (opt) {
       case 'C':
         do_compute_pca = true;
@@ -243,17 +278,20 @@ int main(int argc, char** argv) {
       case 'd':
         simple_precision = false;
         break;
+      case 'e':
+        exclude_dims = atoi(optarg);
+        break;
       case 'n':
         normalize_data = true;
         break;
-      case 'h':
-        help(argv[0]);
-        return 0;
       case 'f':
         format_str = optarg;
         format = format_code_from_name(format_str);
         CHECK_MSG(format != FMT_UNKNOWN, "Unknown format (-f \"%s\")!", optarg);
         break;
+      case 'h':
+        help(argv[0]);
+        return 0;
       case 'j':
         min_energy = atof(optarg);
         CHECK_MSG(
@@ -290,6 +328,7 @@ int main(int argc, char** argv) {
   if (do_compute_pca) fprintf(stderr, " -C");
   if (do_project_data) fprintf(stderr, " -P");
   if (!simple_precision) fprintf(stderr, " -d");
+  if (exclude_dims) fprintf(stderr, " -e %d", exclude_dims);
   if (normalize_data) fprintf(stderr, " -n");
   if (inp_dim > 0) fprintf(stderr, " -p %d", inp_dim);
   if (out_dim > 0) fprintf(stderr, " -q %d", out_dim);
@@ -314,49 +353,63 @@ int main(int argc, char** argv) {
       !do_compute_pca || !do_project_data || input.size() > 0,
       "Use either -C or -P when reading from stdin!");
 
+  // Launch the appropiate do_work function, depending on the format of the
+  // data and whether double or single precision is used.
+  // NOTE: The reason for the extreme `if-else' branching here, is due to the
+  // fact that `do_work' is a templated function. Actually, during compile-time
+  // several `do_work' instances are compiled, and here we must call the correct
+  // one.
   switch (format) {
     case FMT_ASCII:
       if (simple_precision) {
         do_work<FMT_ASCII, float>(
             do_compute_pca, do_project_data, pca_fn, input,
-            output, block, inp_dim, out_dim, min_energy, normalize_data);
+            output, block, inp_dim, out_dim, min_energy, normalize_data,
+            exclude_dims);
       } else {
         do_work<FMT_ASCII, double>(
             do_compute_pca, do_project_data, pca_fn, input,
-            output, block, inp_dim, out_dim, min_energy, normalize_data);
+            output, block, inp_dim, out_dim, min_energy, normalize_data,
+            exclude_dims);
       }
       break;
     case FMT_BINARY:
       if (simple_precision) {
         do_work<FMT_OCTAVE, float>(
             do_compute_pca, do_project_data, pca_fn, input,
-            output, block, inp_dim, out_dim, min_energy, normalize_data);
+            output, block, inp_dim, out_dim, min_energy, normalize_data,
+            exclude_dims);
       } else {
         do_work<FMT_OCTAVE, double>(
             do_compute_pca, do_project_data, pca_fn, input,
-            output, block, inp_dim, out_dim, min_energy, normalize_data);
+            output, block, inp_dim, out_dim, min_energy, normalize_data,
+            exclude_dims);
       }
       break;
     case FMT_OCTAVE:
       if (simple_precision) {
         do_work<FMT_OCTAVE, float>(
             do_compute_pca, do_project_data, pca_fn, input,
-            output, block, inp_dim, out_dim, min_energy, normalize_data);
+            output, block, inp_dim, out_dim, min_energy, normalize_data,
+            exclude_dims);
       } else {
         do_work<FMT_OCTAVE, double>(
             do_compute_pca, do_project_data, pca_fn, input,
-            output, block, inp_dim, out_dim, min_energy, normalize_data);
+            output, block, inp_dim, out_dim, min_energy, normalize_data,
+            exclude_dims);
       }
       break;
     case FMT_VBOSCH:
       if (simple_precision) {
         do_work<FMT_VBOSCH, float>(
             do_compute_pca, do_project_data, pca_fn, input,
-            output, block, inp_dim, out_dim, min_energy, normalize_data);
+            output, block, inp_dim, out_dim, min_energy, normalize_data,
+            exclude_dims);
       } else {
         do_work<FMT_VBOSCH, double>(
             do_compute_pca, do_project_data, pca_fn, input,
-            output, block, inp_dim, out_dim, min_energy, normalize_data);
+            output, block, inp_dim, out_dim, min_energy, normalize_data,
+            exclude_dims);
       }
       break;
     default:

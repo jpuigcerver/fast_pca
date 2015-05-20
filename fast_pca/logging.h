@@ -37,6 +37,11 @@
       stderr, "INFO[%s:%d]: " fmt "\n",          \
       THIS_FILE, __LINE__, ##__VA_ARGS__)
 
+#define WARN(fmt, ...)                           \
+  fprintf(                                       \
+      stderr, "WARN[%s:%d]: " fmt "\n",          \
+      THIS_FILE, __LINE__, ##__VA_ARGS__)
+
 #define ERROR(fmt, ...) {                                               \
     fprintf(                                                            \
         stderr, "ERROR[%s:%d]: " fmt "\n",                              \

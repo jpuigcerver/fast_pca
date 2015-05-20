@@ -138,14 +138,14 @@ void write_matrix<FMT_OCTAVE, double>(
   }
 }
 
-int octave_read_scalar(FILE* file, string* name, int* v) {
+int octave_read_int(FILE* file, string* name, int* v) {
   string type;
   return !((name == NULL || read_keyword(file, "name", name)) &&
            (read_keyword(file, "type", &type) && type == "scalar") &&
            fscanf(file, "%d", v) == 1);
 }
 
-void octave_write_scalar(FILE* file, const string& name, int n) {
+void octave_write_int(FILE* file, const string& name, int n) {
   fprintf(file, "# name: %s\n", name.c_str());
   fprintf(file, "# type: scalar\n");
   fprintf(file, "%d\n", n);

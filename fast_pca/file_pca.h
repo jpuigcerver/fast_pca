@@ -42,7 +42,7 @@ void save_n_mean_cov(
   FILE* out_f = stdout;
   if (fname != "") { out_f = open_file(fname.c_str(), "w"); }
   // write n
-  octave_write_scalar(out_f, "N", n);
+  octave_write_int(out_f, "N", n);
   // write m
   write_matrix_header<FMT_OCTAVE>(out_f, "M", 1, d);
   write_block<FMT_OCTAVE, real_t>(out_f, d, m.data());
@@ -60,7 +60,7 @@ void load_n_mean_cov(
   if (fname != "") { file = open_file(fname.c_str(), "rb"); }
   string ts;
   int tr = -1, tc = -1;
-  if (octave_read_scalar(file, &ts, &tr) || ts != "N" ||
+  if (octave_read_int(file, &ts, &tr) || ts != "N" ||
       (*n >= 0 && tr != *n)) {
     ERROR("Failed to read scalar N in \"%s\"!", fname.c_str());
   }
@@ -79,35 +79,51 @@ void load_n_mean_cov(
 
 template <typename real_t>
 void load_pca(
-    const string& fname, int* d, vector<real_t>* mean, vector<real_t>* stddev,
-    vector<real_t>* eigval, vector<real_t>* eigvec) {
+    const string& fname, int* d, int* ed, vector<real_t>* mean,
+    vector<real_t>* stddev, vector<real_t>* eigval, vector<real_t>* eigvec) {
   FILE* file = stdin;
   if (fname != "") { file = open_file(fname.c_str(), "rb"); }
   string ts;
   int tr = -1, tc = -1;
+  // read excluded dimensions, if it cannot be read, assume 0.
+  if (octave_read_int(file, &ts, ed)) *ed = 0;
+  // read means vector
   CHECK_MSG(
       !octave_read_matrix(file, &ts, &tr, &tc, mean) && ts == "M" && tr == 1 &&
       (*d < 1 || tc == *d), "Failed to read M in \"%s\"!", fname.c_str());
   *d = tc;
+  const int effective_dims = *d - abs(*ed);
+  CHECK_MSG(
+      effective_dims > 0, "Too many excluded dimensions "
+      "(dims = %d, excluded = %d)!", *d, *ed);
+  // read standard deviations vector
   CHECK_MSG(
       !octave_read_matrix(file, &ts, &tr, &tc, stddev) && ts == "S" &&
       tr == 1 && tc == *d, "Failed to read S in \"%s\"!", fname.c_str());
+  // read eigenvalues
   CHECK_MSG(
       !octave_read_matrix(file, &ts, &tr, &tc, eigval) && ts == "D" &&
-      tr == 1 && tc == *d, "Failed to read D in \"%s\"!", fname.c_str());
+      tr == 1 && tc == effective_dims, "Failed to read D in \"%s\"!",
+      fname.c_str());
+  // read eigenvectors
   CHECK_MSG(
       !octave_read_matrix(file, &ts, &tr, &tc, eigvec) && ts == "V" &&
-      tr == *d && tc == *d, "Failed to read V in \"%s\"!", fname.c_str());
+      tr == effective_dims && tc == effective_dims,
+      "Failed to read V in \"%s\"!", fname.c_str());
   if (fname != "") { fclose(file); }
 }
 
 template <typename real_t>
 void save_pca(
-    const string& fname, int d, const vector<real_t>& mean,
+    const string& fname, int d, int exclude_dims, const vector<real_t>& mean,
     const vector<real_t>& stddev, const vector<real_t>& eigval,
     const vector<real_t>& eigvec) {
   FILE* file = stdout;
   if (fname != "") file = open_file(fname.c_str(), "wb");
+  // write excluded dimensions
+  octave_write_int(file, "E", exclude_dims);
+  // dimensions of the projection matrix and the eigenvalues
+  const int ed = d - abs(exclude_dims);
   // write mean
   write_matrix_header<FMT_OCTAVE>(file, "M", 1, d);
   write_block<FMT_OCTAVE, real_t>(file, d, mean.data());
@@ -115,11 +131,11 @@ void save_pca(
   write_matrix_header<FMT_OCTAVE>(file, "S", 1, d);
   write_block<FMT_OCTAVE, real_t>(file, d, stddev.data());
   // write eigenvalues
-  write_matrix_header<FMT_OCTAVE>(file, "D", 1, d);
-  write_block<FMT_OCTAVE, real_t>(file, d, eigval.data());
+  write_matrix_header<FMT_OCTAVE>(file, "D", 1, ed);
+  write_block<FMT_OCTAVE, real_t>(file, ed, eigval.data());
   // write eigenvectors
-  write_matrix_header<FMT_OCTAVE>(file, "V", d, d);
-  write_matrix<FMT_OCTAVE, real_t>(file, d, d, eigvec.data());
+  write_matrix_header<FMT_OCTAVE>(file, "V", ed, ed);
+  write_matrix<FMT_OCTAVE, real_t>(file, ed, ed, eigvec.data());
   if (fname != "") fclose(file);
 }
 

@@ -36,7 +36,7 @@ void ger(
 
 // compute eigenvectors and eigenvalues of a symmetric matrix
 template <typename real_t>
-int syev(int n, real_t* a, real_t* w);
+int syev(int n, int lda, real_t* a, real_t* w);
 
 // C = alpha * A * B + beta * C
 template <typename real_t>
@@ -61,8 +61,8 @@ template <> void ger<double>(
     int, int, double, const double*, const double*, double*);
 
 // syev specializations for float and doubles
-template <> int syev<float>(int n, float* a, float* w);
-template <> int syev<double>(int n, double* a, double* w);
+template <> int syev<float>(int, int, float*, float*);
+template <> int syev<double>(int, int, double*, double*);
 
 // gemm specializations for float and doubles
 template <> void gemm<float>(
@@ -71,7 +71,6 @@ template <> void gemm<float>(
 template <> void gemm<double>(
     char, char, int, int, int, double, const double*, int, const double*, int,
     double, double*, int);
-
 
 // gemv specializations for float and doubles
 template <> void gemv<float>(

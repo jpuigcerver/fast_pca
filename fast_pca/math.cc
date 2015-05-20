@@ -67,28 +67,32 @@ template <> void ger<double>(
   dger_(&m, &n, &alpha, x, &inc, y, &inc, a, &n);
 }
 
-template <> int syev<float>(int n, float* a, float* w) {
+template <> int syev<float>(int n, int lda, float* a, float* w) {
   char opt[2] = {'V', 'U'};
+  // first, allocate optimal workspace
   int info = 0, lwork = -1;
   float wkopt = 0;
-  ssyev_(opt, opt + 1, &n, a, &n, w, &wkopt, &lwork, &info);
+  ssyev_(opt, opt + 1, &n, a, &lda, w, &wkopt, &lwork, &info);
   if (info != 0) { return info; }
+  // solve eigenvalues and eigenvectors
   lwork = static_cast<int>(wkopt);
   float* work = new float[lwork];
-  ssyev_(opt, opt + 1, &n, a, &n, w, work, &lwork, &info);
+  ssyev_(opt, opt + 1, &n, a, &lda, w, work, &lwork, &info);
   delete [] work;
   return info;
 }
 
-template <> int syev<double>(int n, double* a, double* w) {
+template <> int syev<double>(int n, int lda, double* a, double* w) {
   char opt[2] = {'V', 'U'};
+  // first, allocate optimal workspace
   int info = 0, lwork = -1;
   double wkopt = 0;
-  dsyev_(opt, opt + 1, &n, a, &n, w, &wkopt, &lwork, &info);
+  dsyev_(opt, opt + 1, &n, a, &lda, w, &wkopt, &lwork, &info);
   if (info != 0) { return info; }
+  // solve eigenvalues and eigenvectors
   lwork = static_cast<int>(wkopt);
   double* work = new double[lwork];
-  dsyev_(opt, opt + 1, &n, a, &n, w, work, &lwork, &info);
+  dsyev_(opt, opt + 1, &n, a, &lda, w, work, &lwork, &info);
   delete [] work;
   return info;
 }

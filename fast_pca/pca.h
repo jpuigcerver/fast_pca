@@ -38,26 +38,19 @@ using std::vector;
 
 // Compute eigenvalues and eigenvectors of the matrix m
 // n -> (input)  number of dimensions
-// m -> (input)  squared matrix, (output) eigenvectors
+// l -> (input)  leading dimension of matrix m
+// m -> (input)  squared & symmetric matrix, (output) eigenvectors
 // w -> (output) eigenvalues
 template <typename real_t>
-int eig(int n, real_t* m, real_t* w) {
+int eig(int n, int l, real_t* m, real_t* w) {
   // Compute eigenvalues and eigenvectors
-  const int info = syev<real_t>(n, m, w);
+  const int info = syev<real_t>(n, l, m, w);
   if (info != 0) { return info; }
-  // Compute ordering of the eigenvalues
-  vector<int> order(n);
-  for (int d = 0; d < n; ++d) { order[d] = d; }
-  sort(order.begin(), order.end(), [&w](int a, int b) -> bool {
-      return w[a] > w[b];
-    });
-  // Reorder eigenvalues and eigenvectors
+  // Reorder eigenvalues and eigenvectors (ascending -> descending order)
   for (int r = 0; r < n / 2; ++r) {
-    swap(w[r], w[order[r]]);
+    swap(w[r], w[n - r - 1]);
     for (int d = 0; d < n; ++d) {
-      real_t* x = m + r * n + d;
-      real_t* y = m + order[r] * n + d;
-      swap(*x, *y);
+      swap(m[r * l + d], m[(n - r - 1) * l + d]);
     }
   }
   return 0;
@@ -67,20 +60,20 @@ int eig(int n, real_t* m, real_t* w) {
 // n -> (input) number of data samples
 // p -> (input) input data dimension
 // q -> (input) output data dimension
+// r -> (input) exclude these number of first/last dimensions from projection
 // e -> (input) eigenvectors of the zero-mean covariance of the input data
 // m -> (input) mean of the input data for each dimension
 // s -> (input) standard deviation of the input data for each dimension
-// x -> (input/output) data
+// x -> (input/output) input: original data, output: projected data
+// b -> (output) mean-centered (and optionally standarized) original data
 template <typename real_t>
 int project(
-    int n, int p, int q, const real_t* e, const real_t* m, const real_t* s,
-    real_t* x) {
+    int n, int p, int q, int r, const real_t* e, const real_t* m,
+    const real_t* s, real_t* x, real_t* b) {
   if (p < q) { return -1; }
-  // allocate space for zero-mean data
-  vector<real_t> B(x, x + n * p);
   // convert input data to zero-mean
   // TODO(jpuigcerver): this can run in parallel
-  for (int i = 0; i < n; ++i) { axpy<real_t>(p, -1, m, B.data() + i * p); }
+  for (int i = 0; i < n; ++i) { axpy<real_t>(p, -1, m, x + i * p); }
   // if the variances are given, input data is normalized
   if (s) {
     // TODO(jpuigcerver): this can run in parallel
@@ -88,11 +81,28 @@ int project(
       // just for safety, if the variance is small,
       // do not normalize data in that dimension
       if (s[i % p] > 1E-6) {
-        B[i] /= s[i % p];
+        x[i] /= s[i % p];
       }
     }
   }
-  gemm<real_t>('N', 'T', n, q, p, 1, B.data(), p, e, p, 0, x, q);
+  // Copy x (the mean-centered and normalized data) to auxiliar matrix b
+  // NOTE: Since gemm will destroy original data x, we need to store it
+  // somewhere else to perform the matrix multiplication.
+  real_t* b_loc = b ? b : new real_t[n * p];
+  memcpy(b, x, sizeof(real_t) * n * p);
+  // Effective sizes (p: input, q: output) of the projected data
+  const int eff_p = p - abs(r);
+  const int eff_q = q - abs(r);
+  // Offset to the input/output data, so the excluded dimensions are not
+  // projected
+  real_t* b_offset = r <= 0 ? b_loc : b_loc + r;
+  real_t* x_offset = r <= 0 ? x :  x + r;
+  gemm<real_t>(
+      'N', 'T', n, eff_q, eff_p, 1, b_offset, p, e, eff_p, 0, x_offset, q);
+  // If the b matrix was not given, remove the auxiliar one
+  if (b != b_loc) {
+    delete [] b_loc;
+  }
   return 0;
 }
 

@@ -31,8 +31,8 @@
 using std::string;
 using std::vector;
 
-int octave_read_scalar(FILE* file, string* name, int* v);
-void octave_write_scalar(FILE* file, const string& name, int n);
+int octave_read_int(FILE* file, string* name, int* v);
+void octave_write_int(FILE* file, const string& name, int n);
 
 template <typename real_t>
 int octave_read_matrix(
