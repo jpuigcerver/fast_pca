@@ -29,6 +29,8 @@
 #include <string>
 #include <vector>
 
+#include "fast_pca/logging.h"
+
 using std::string;
 using std::vector;
 
@@ -37,7 +39,8 @@ typedef enum {
   FMT_ASCII = 0,
   FMT_BINARY,
   FMT_OCTAVE,
-  FMT_VBOSCH
+  FMT_VBOSCH,
+  FMT_PRHLT_HTK
 } FORMAT_CODE;
 
 FORMAT_CODE format_code_from_name(const string& name);

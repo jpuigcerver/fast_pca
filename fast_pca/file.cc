@@ -34,6 +34,8 @@ FORMAT_CODE format_code_from_name(const string& name) {
     return FMT_OCTAVE;
   } else if (name == "vbosch") {
     return FMT_VBOSCH;
+  } else if (name == "prhlt_htk") {
+    return FMT_PRHLT_HTK;
   } else {
     return FMT_UNKNOWN;
   }

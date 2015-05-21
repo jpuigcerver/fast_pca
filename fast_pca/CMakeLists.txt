@@ -3,7 +3,8 @@ add_library(file OBJECT
   file.h file.cc
   file_octave.h file_octave.cc
   file_plain.cc
-  file_vbosch.cc)
+  file_vbosch.cc
+  file_prhlt_htk.cc)
 
 add_executable(fast_pca
   fast_pca.cc

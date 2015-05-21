@@ -53,7 +53,8 @@ void help(const char* prog) {
       "  -b size    process data in batches of this number of rows\n"
       "  -d         use double precision\n"
       "  -e dim     exclude first (positive) or last (negative) dimensions\n"
-      "  -f format  format of the data matrix (ascii, binary, octave, vbosch)\n"
+      "  -f format  format of the data matrix (ascii, binary, octave, vbosch,\n"
+      "             prhlt_htk)\n"
       "  -j energy  minimum cumulative energy preserved\n"
       "  -m pca     file containing the pca information\n"
       "  -n         normalize data before projection\n"
@@ -412,6 +413,19 @@ int main(int argc, char** argv) {
             exclude_dims);
       } else {
         do_work<FMT_VBOSCH, double>(
+            do_compute_pca, do_project_data, pca_fn, input,
+            output, block, inp_dim, out_dim, min_energy, normalize_data,
+            exclude_dims);
+      }
+      break;
+    case FMT_PRHLT_HTK:
+      if (simple_precision) {
+        do_work<FMT_PRHLT_HTK, float>(
+            do_compute_pca, do_project_data, pca_fn, input,
+            output, block, inp_dim, out_dim, min_energy, normalize_data,
+            exclude_dims);
+      } else {
+        do_work<FMT_PRHLT_HTK, double>(
             do_compute_pca, do_project_data, pca_fn, input,
             output, block, inp_dim, out_dim, min_energy, normalize_data,
             exclude_dims);

@@ -139,6 +139,12 @@ int main(int argc, char** argv) {
       else
         do_work<FMT_VBOSCH, double>(block, dims, output, input);
       break;
+    case FMT_PRHLT_HTK:
+      if (simple)
+        do_work<FMT_PRHLT_HTK, float>(block, dims, output, input);
+      else
+        do_work<FMT_PRHLT_HTK, double>(block, dims, output, input);
+      break;
     default:
       ERROR("Not implemented for this format!");
   }
