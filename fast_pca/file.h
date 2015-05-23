@@ -76,8 +76,13 @@ int read_block(FILE* file, int n, real_t* m);
 template <FORMAT_CODE code, typename real_t>
 void write_block(FILE* file, int n, const real_t* m);
 
+// file -> (input) descriptor of the file to write the matrix
+// r    -> (input) number of rows
+// c    -> (input) number of columns
+// ldm  -> (input) leading dimension of the matrix
+// m    -> (input) matrix to write
 template <FORMAT_CODE code, typename real_t>
-void write_matrix(FILE* file, int r, int c, const real_t* m);
+void write_matrix(FILE* file, int r, int c, int ldm, const real_t* m);
 
 
 #endif  // FAST_PCA_FILE_H_

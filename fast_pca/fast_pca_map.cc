@@ -77,19 +77,19 @@ int main(int argc, char** argv) {
         break;
       case 'b':
         block = atoi(optarg);
-        CHECK_MSG(block > 0, "Block size must be positive (-b %d)!", block);
+        CHECK_FMT(block > 0, "Block size must be positive (-b %d)!", block);
         break;
       case 'f':
         format_str = optarg;
         format = format_code_from_name(format_str);
-        CHECK_MSG(format != FMT_UNKNOWN, "Unknown format (-f \"%s\")!", optarg);
+        CHECK_FMT(format != FMT_UNKNOWN, "Unknown format (-f \"%s\")!", optarg);
         break;
       case 'o':
         output = optarg;
         break;
       case 'p':
         dims = atoi(optarg);
-        CHECK_MSG(dims > 0, "Input dimensions must be positive (-p %d)!", dims);
+        CHECK_FMT(dims > 0, "Input dimensions must be positive (-p %d)!", dims);
         break;
       case 'h':
         help(argv[0]);

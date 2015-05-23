@@ -32,17 +32,35 @@
 #define THIS_FILE                                                       \
   (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
 
-#define INFO(fmt, ...)                           \
+#define INFO(msg)                                \
+  fprintf(                                       \
+      stderr, "INFO[%s:%d]: " msg "\n",          \
+      THIS_FILE, __LINE__)
+
+#define INFO_FMT(fmt, ...)                       \
   fprintf(                                       \
       stderr, "INFO[%s:%d]: " fmt "\n",          \
       THIS_FILE, __LINE__, ##__VA_ARGS__)
 
-#define WARN(fmt, ...)                           \
+#define WARN(msg)                                \
+  fprintf(                                       \
+      stderr, "WARN[%s:%d]: " msg "\n",          \
+      THIS_FILE, __LINE__)
+
+#define WARN_FMT(fmt, ...)                       \
   fprintf(                                       \
       stderr, "WARN[%s:%d]: " fmt "\n",          \
       THIS_FILE, __LINE__, ##__VA_ARGS__)
 
-#define ERROR(fmt, ...) {                                               \
+
+#define ERROR(msg) {                                                    \
+    fprintf(                                                            \
+        stderr, "ERROR[%s:%d]: " msg "\n",                              \
+        THIS_FILE, __LINE__);                                           \
+    exit(1);                                                            \
+  }
+
+#define ERROR_FMT(fmt, ...) {                                           \
     fprintf(                                                            \
         stderr, "ERROR[%s:%d]: " fmt "\n",                              \
         THIS_FILE, __LINE__, ##__VA_ARGS__);                            \
@@ -57,7 +75,14 @@
     exit(1);                                                            \
   }
 
-#define CHECK_MSG(cond, fmt, ...)                                   \
+#define CHECK_MSG(cond, msg)                                     \
+  if (!(cond)) {                                                 \
+    fprintf(                                                     \
+        stderr, "ERROR[%s:%d]: " msg "\n", THIS_FILE, __LINE__); \
+    exit(1);                                                     \
+  }
+
+#define CHECK_FMT(cond, fmt, ...)                                   \
   if (!(cond)) {                                                    \
     fprintf(                                                        \
         stderr, "ERROR[%s:%d]: " fmt "\n",                          \

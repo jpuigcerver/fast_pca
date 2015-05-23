@@ -62,17 +62,17 @@ template <> void write_block<FMT_ASCII, double>(
 
 template <>
 void write_matrix<FMT_ASCII, float>(
-    FILE* file, int rows, int cols, const float* m) {
+    FILE* file, int rows, int cols, int ldm, const float* m) {
   for (int r = 0; r < rows; ++r) {
-    write_block<FMT_ASCII, float>(file, cols, m + r * cols);
+    write_block<FMT_ASCII, float>(file, cols, m + r * ldm);
   }
 }
 
 template <>
 void write_matrix<FMT_ASCII, double>(
-    FILE* file, int rows, int cols, const double* m) {
+    FILE* file, int rows, int cols, int ldm, const double* m) {
   for (int r = 0; r < rows; ++r) {
-    write_block<FMT_ASCII, double>(file, cols, m + r * cols);
+    write_block<FMT_ASCII, double>(file, cols, m + r * ldm);
   }
 }
 
@@ -106,12 +106,16 @@ template <> void write_block<FMT_BINARY, double>(
 
 template <>
 void write_matrix<FMT_BINARY, float>(
-    FILE* file, int rows, int cols, const float* m) {
-  write_block<FMT_BINARY, float>(file, rows * cols, m);
+    FILE* file, int rows, int cols, int ldm, const float* m) {
+  for (int r = 0; r < rows; ++r) {
+    write_block<FMT_BINARY, float>(file, cols, m + r * ldm);
+  }
 }
 
 template <>
 void write_matrix<FMT_BINARY, double>(
-    FILE* file, int rows, int cols, const double* m) {
-  write_block<FMT_BINARY, double>(file, rows * cols, m);
+    FILE* file, int rows, int cols, int ldm, const double* m) {
+  for (int r = 0; r < rows; ++r) {
+    write_block<FMT_BINARY, double>(file, cols, m + r * ldm);
+  }
 }

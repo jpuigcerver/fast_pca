@@ -83,7 +83,7 @@ void do_work(
     n += br;
   }
   if (compute_pca) {
-    CHECK_MSG(dims >= exclude_dims,
+    CHECK_FMT(dims >= exclude_dims,
               "Dimensions to exclude (%d) is bigger than the data "
               "dimensions (%d)!", exclude_dims, dims);
     // convert comoment into covariance matrix

@@ -43,7 +43,7 @@ FORMAT_CODE format_code_from_name(const string& name) {
 
 FILE* open_file(const char* fname, const char* mode) {
   FILE* file = fopen(fname, mode);
-  CHECK_MSG(file, "Failed to open file \"%s\" with mode \"%s\"!", fname, mode);
+  CHECK_FMT(file, "Failed to open file \"%s\" with mode \"%s\"!", fname, mode);
   return file;
 }
 

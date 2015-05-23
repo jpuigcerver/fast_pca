@@ -23,6 +23,7 @@
 */
 
 #include "fast_pca/file.h"
+#include "fast_pca/logging.h"
 
 // Determine whether the machine is bigendian or not
 // NOTE: The output of this function is known at compile time, a good
@@ -74,10 +75,11 @@ template <> int read_matrix_header<FMT_PRHLT_HTK>(
   CHECK_MSG(
       parmKind == 9, "HTK format only supports the USER parameter kind!");
   if (sampPeriod != 100000) {
-    WARN("HTK format will save the data using a sampPeriod = 10Kus, "
+    WARN_FMT("HTK format will save the data using a sampPeriod = 10Kus, "
          "but your data was originally sampled at %gKus...",
          sampPeriod * 0.1);
   }
+  return 0;
 }
 
 template <> void write_matrix_header<FMT_PRHLT_HTK>(
@@ -131,16 +133,16 @@ void write_block<FMT_PRHLT_HTK, double>(FILE* file, int n, const double* m) {
 
 template <>
 void write_matrix<FMT_PRHLT_HTK, float>(
-    FILE* file, int rows, int cols, const float* m) {
+    FILE* file, int rows, int cols, int ldm, const float* m) {
   for (int r = 0; r < rows; ++r) {
-    write_block<FMT_PRHLT_HTK, float>(file, cols, m + r * cols);
+    write_block<FMT_PRHLT_HTK, float>(file, cols, m + r * ldm);
   }
 }
 
 template <>
 void write_matrix<FMT_PRHLT_HTK, double>(
-    FILE* file, int rows, int cols, const double* m) {
+    FILE* file, int rows, int cols, int ldm, const double* m) {
   for (int r = 0; r < rows; ++r) {
-    write_block<FMT_PRHLT_HTK, double>(file, cols, m + r * cols);
+    write_block<FMT_PRHLT_HTK, double>(file, cols, m + r * ldm);
   }
 }

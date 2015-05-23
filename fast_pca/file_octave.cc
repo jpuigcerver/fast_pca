@@ -23,6 +23,7 @@
 */
 
 #include "fast_pca/file.h"
+#include "fast_pca/file_octave.h"
 
 #include <sstream>
 #include <string>
@@ -124,29 +125,46 @@ void write_block<FMT_OCTAVE, double>(FILE* file, int n, const double* m) {
 
 template <>
 void write_matrix<FMT_OCTAVE, float>(
-    FILE* file, int rows, int cols, const float* m) {
+    FILE* file, int rows, int cols, int ldm, const float* m) {
   for (int r = 0; r < rows; ++r) {
-    write_block<FMT_OCTAVE, float>(file, cols, m + r * cols);
+    write_block<FMT_OCTAVE, float>(file, cols, m + r * ldm);
   }
 }
 
 template <>
 void write_matrix<FMT_OCTAVE, double>(
-    FILE* file, int rows, int cols, const double* m) {
+    FILE* file, int rows, int cols, int ldm, const double* m) {
   for (int r = 0; r < rows; ++r) {
-    write_block<FMT_OCTAVE, double>(file, cols, m + r * cols);
+    write_block<FMT_OCTAVE, double>(file, cols, m + r * ldm);
   }
 }
 
-int octave_read_int(FILE* file, string* name, int* v) {
+template <>
+int octave_read_scalar<int>(FILE* file, string* name, int* v) {
   string type;
   return !((name == NULL || read_keyword(file, "name", name)) &&
            (read_keyword(file, "type", &type) && type == "scalar") &&
            fscanf(file, "%d", v) == 1);
 }
 
-void octave_write_int(FILE* file, const string& name, int n) {
+template <>
+int octave_read_scalar<double>(FILE* file, string* name, double* v) {
+  string type;
+  return !((name == NULL || read_keyword(file, "name", name)) &&
+           (read_keyword(file, "type", &type) && type == "scalar") &&
+           fscanf(file, "%lf", v) == 1);
+}
+
+template <>
+void octave_write_scalar<int>(FILE* file, const string& name, int v) {
   fprintf(file, "# name: %s\n", name.c_str());
   fprintf(file, "# type: scalar\n");
-  fprintf(file, "%d\n", n);
+  fprintf(file, "%d\n", v);
+}
+
+template <>
+void octave_write_scalar<double>(FILE* file, const string& name, double v) {
+  fprintf(file, "# name: %s\n", name.c_str());
+  fprintf(file, "# type: scalar\n");
+  fprintf(file, "%.16g\n", v);
 }

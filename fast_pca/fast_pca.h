@@ -48,7 +48,7 @@ void compute_mean_comoments_from_inputs(
     const char* fname = input[f].c_str();
     FILE* file = files[f];
     int h_rows = -1, h_dims = -1;
-    CHECK_MSG(
+    CHECK_FMT(
         !read_matrix_header<fmt>(file, NULL, &h_rows, &h_dims) &&
         (*dims < 0 || h_dims != *dims),
         "Wrong header in matrix file \"%s\"!", fname);
@@ -66,7 +66,7 @@ void compute_mean_comoments_from_inputs(
     FILE* file = files[f];
     int fr = 0, be = 0, br = 0;
     while ((be = read_block<fmt, real_t>(file, block * *dims, x.data())) > 0) {
-      CHECK_MSG(be % (*dims) == 0, "Corrupted matrix in file \"%s\"!\n", fname);
+      CHECK_FMT(be % (*dims) == 0, "Corrupted matrix in file \"%s\"!\n", fname);
       br = be / (*dims);
       fr += br;
       // compute block mean
@@ -114,7 +114,7 @@ void compute_mean_comoments_from_inputs2(
     const char* fname = input[f].c_str();
     FILE* file = files[f];
     int h_rows = -1, h_dims = -1;
-    CHECK_MSG(
+    CHECK_FMT(
         !read_matrix_header<fmt>(file, NULL, &h_rows, &h_dims) &&
         (*dims < 0 || h_dims != *dims),
         "Wrong header in matrix file \"%s\"!", fname);
@@ -132,7 +132,7 @@ void compute_mean_comoments_from_inputs2(
     FILE* file = files[f];
     int fr = 0, be = 0, br = 0;
     while ((be = read_block<fmt, real_t>(file, block * *dims, x.data())) > 0) {
-      CHECK_MSG(be % (*dims) == 0, "Corrupted matrix in file \"%s\"!\n", fname);
+      CHECK_FMT(be % (*dims) == 0, "Corrupted matrix in file \"%s\"!\n", fname);
       br = be / (*dims);
       fr += br;
       // compute block mean

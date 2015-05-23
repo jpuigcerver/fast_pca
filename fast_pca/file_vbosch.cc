@@ -62,16 +62,16 @@ void write_block<FMT_VBOSCH, double>(FILE* file, int n, const double* m) {
 
 template <>
 void write_matrix<FMT_VBOSCH, float>(
-    FILE* file, int rows, int cols, const float* m) {
+    FILE* file, int rows, int cols, int ldm, const float* m) {
   for (int r = 0; r < rows; ++r) {
-    write_block<FMT_VBOSCH, float>(file, cols, m + r * cols);
+    write_block<FMT_VBOSCH, float>(file, cols, m + r * ldm);
   }
 }
 
 template <>
 void write_matrix<FMT_VBOSCH, double>(
-    FILE* file, int rows, int cols, const double* m) {
+    FILE* file, int rows, int cols, int ldm, const double* m) {
   for (int r = 0; r < rows; ++r) {
-    write_block<FMT_VBOSCH, double>(file, cols, m + r * cols);
+    write_block<FMT_VBOSCH, double>(file, cols, m + r * ldm);
   }
 }
