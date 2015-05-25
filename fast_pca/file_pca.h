@@ -49,7 +49,7 @@ void save_n_mean_cov(
   write_block<FMT_OCTAVE, real_t>(out_f, d, m.data());
   // write c
   write_matrix_header<FMT_OCTAVE>(out_f, "C", d, d);
-  write_matrix<FMT_OCTAVE, real_t>(out_f, d, d, d, c.data());
+  write_matrix<FMT_OCTAVE, real_t>(out_f, d, d, c.data());
   fclose(out_f);
 }
 
@@ -155,7 +155,6 @@ void load_pca(
 }
 
 // fname        -> (input) file to store the pca data, "" for stdout
-// pca_odim     -> (input) number of components available for projection
 // exclude_dims -> (input) exclude this number of first/last dimensions
 // mean         -> (input) means of each data dimension
 // stddev       -> (input) standard deviation of each data dimension
@@ -163,11 +162,10 @@ void load_pca(
 // eigvec       -> (input) eigenvectors matrix
 template <typename real_t>
 void save_pca(
-    const string& fname, int pca_odim, int exclude_dims,
-    const vector<real_t>& mean, const vector<real_t>& stddev,
-    const vector<real_t>& eigval, const vector<real_t>& eigvec) {
+    const string& fname, int exclude_dims, const vector<real_t>& mean,
+    const vector<real_t>& stddev, const vector<real_t>& eigval,
+    const vector<real_t>& eigvec) {
   // safety checks
-  CHECK(pca_odim >= 0 && pca_odim <= eigval.size());
   CHECK(mean.size() == stddev.size());
   CHECK(eigval.size() <= mean.size());
   FILE* file = stdout;
@@ -175,9 +173,7 @@ void save_pca(
   // write excluded dimensions
   octave_write_scalar<int>(file, "E", exclude_dims);
   // remaining energy
-  const double rem_energy = std::accumulate(
-      eigval.begin() + pca_odim, eigval.end(), 0.0);
-  octave_write_scalar<double>(file, "R", rem_energy);
+  octave_write_scalar<double>(file, "R", miss_energy);
   // write mean
   write_matrix_header<FMT_OCTAVE>(file, "M", 1, mean.size());
   write_block<FMT_OCTAVE, real_t>(file, mean.size(), mean.data());
@@ -186,12 +182,11 @@ void save_pca(
   write_block<FMT_OCTAVE, real_t>(file, stddev.size(), stddev.data());
   // write eigenvalues
   write_matrix_header<FMT_OCTAVE>(file, "D", 1, pca_odim);
-  write_block<FMT_OCTAVE, real_t>(file, pca_odim, eigval.data());
+  write_block<FMT_OCTAVE, real_t>(file, eigval.size(), eigval.data());
   // write eigenvectors
   const int pca_idim = mean.size() - abs(exclude_dims);
-  write_matrix_header<FMT_OCTAVE>(file, "V", pca_idim, pca_odim);
-  // we are only storing pca_odim columns from the PCA matrix, observe that
-  // the leading dimension of the eigenvectors matrix is still pca_idim
+  const int pca_odim = eigval.size();
+  write_matrix_header<FMT_OCTAVE>(file, "V", pca_odim, pca_idim);
   write_matrix<FMT_OCTAVE, real_t>(
       file, pca_idim, pca_odim, pca_idim, eigvec.data());
   fclose(file);

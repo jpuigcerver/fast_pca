@@ -125,17 +125,17 @@ void write_block<FMT_OCTAVE, double>(FILE* file, int n, const double* m) {
 
 template <>
 void write_matrix<FMT_OCTAVE, float>(
-    FILE* file, int rows, int cols, int ldm, const float* m) {
+    FILE* file, int rows, int cols, const float* m) {
   for (int r = 0; r < rows; ++r) {
-    write_block<FMT_OCTAVE, float>(file, cols, m + r * ldm);
+    write_block<FMT_OCTAVE, float>(file, cols, m + r * cols);
   }
 }
 
 template <>
 void write_matrix<FMT_OCTAVE, double>(
-    FILE* file, int rows, int cols, int ldm, const double* m) {
+    FILE* file, int rows, int cols, const double* m) {
   for (int r = 0; r < rows; ++r) {
-    write_block<FMT_OCTAVE, double>(file, cols, m + r * ldm);
+    write_block<FMT_OCTAVE, double>(file, cols, m + r * cols);
   }
 }
 

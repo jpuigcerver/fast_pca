@@ -66,48 +66,83 @@ void help(const char* prog) {
       prog, prog, prog, prog);
 }
 
-
+// input        -> (input) list of input file names
+// block        -> (input) block size (number of rows to load in memory)
+// exclude_dims -> (input) exclude these first/last dimensions from pca
+// inp_dim      -> (input/output) number of input dimensions
+// out_dim      -> (input/output) number of maximum output dimensions when
+//                 doing projection
+// miss_energy  -> (output) missed energy when projecting using all the
+//                 selected eigenvectors
+// eigval       -> (output) vector with the selected eigenvalues
+//                 size: out_dim elements
+// eigvec       -> (output) matrix with the selected eigenvectors from the data
+//                 size: out_dim rows x (inp_dim - exclude_dims) columns
+// mean         -> (output) vector with the mean of the input data
+//                 size: inp_dim elements
+// stddev       -> (output) vector with the standard deviation of the input data
+//                 size: inp_dim elements
 template <FORMAT_CODE fmt, typename real_t>
 void compute_pca(
-    vector<string> input, int block, int exclude_dims, int* dims,
-    vector<real_t>* eigval, vector<real_t>* eigvec, vector<real_t>* mean,
-    vector<real_t>* stddev) {
+    vector<string> input, int block, int exclude_dims, int* inp_dim,
+    int* out_dim, double* miss_energy, vector<real_t>* eigval,
+    vector<real_t>* eigvec, vector<real_t>* mean, vector<real_t>* stddev) {
   int n = 0;  // number of data samples
   // process input to compute mean and co-moments
   compute_mean_comoments_from_inputs<fmt, real_t>(
-      block, input, &n, dims, mean, eigvec);
-  CHECK_FMT(*dims >= exclude_dims,
-            "Dimensions to exclude (%d) is bigger than the data "
-            "dimensions (%d)!", exclude_dims, *dims);
+      block, input, &n, inp_dim, mean, eigvec);
+  CHECK_FMT(*inp_dim >= abs(exclude_dims),
+            "Number of dimensions to exclude (%d) is bigger than the input "
+            "dimensionality (%d)!", abs(exclude_dims), *inp_dims);
+  CHECK_FMT(*inp_dim >= *out_dim,
+            "Number of output dimensions (%d) is bigger than the input "
+            "dimensionality (%d)!", *out_dims, *inp_dims);
+  // if the number of output dimensions was not set, set it to the number of
+  // input dimensions
+  if (*out_dim <= 0) *out_dim = *inp_dim;
   // compute covariance from co-moments
-  CHECK_FMT(n > 1, "You need at least 2 data points (%d processed)!", n);
-  for (int i = 0; i < (*dims) * (*dims); ++i) {
+  CHECK_FMT(n > 1, "You need at least 2 data points (only %d processed)!", n);
+  for (int i = 0; i < (*inp_dim) * (*inp_dim); ++i) {
     (*eigvec)[i] /= (n - 1);
   }
   // compute standard deviation in each dimension
-  stddev->resize(*dims);
-  for (int i = 0; i < (*dims); ++i) {
-    (*stddev)[i] = sqrt((*eigvec)[i * (*dims) + i]);
+  stddev->resize(*inp_dim);
+  for (int i = 0; i < (*inp_dim); ++i) {
+    (*stddev)[i] = sqrt((*eigvec)[i * (*inp_dim) + i]);
   }
   // Up to here, we have the whole covariance matrix. But we will compute
   // only the eigenvalues and eigenvectors of the submatrix obtained after
   // removing the first/last `exclude_dims' rows and columns.
-  const int eff_dims = *dims - abs(exclude_dims);
-  // compute eigenvectors and eigenvalues of the covariance matrix
-  // WARNING: This destroys the covariance matrix!
-  eigval->resize(eff_dims);
-  if (eff_dims > 0) {
+  const int pca_idim = *inp_dim - abs(exclude_dims);
+  const int pca_odim = *out_dim - abs(exclude_dims);
+
+  if (pca_odim > 0) {
+    // Prepare memory for the eigenvalues
+    eigval->resize(pca_idim);
+    // Exclude from the covariance matrix the excluded dimensions.
+    // NOTE: I am using the same space to store the covariance and the
+    // eigenvalues, thus: this will destroy the covariance matrix!
     real_t* eigvec_offset = exclude_dims <= 0 ? eigvec->data() :
-        eigvec->data() + exclude_dims * (*dims) + exclude_dims;
-    CHECK(eig<real_t>(eff_dims, *dims, eigvec_offset, eigval->data()) == 0);
-    // Move all eigenvectors to the first rows
-    for (int r = 0; r < eff_dims; ++r) {
-      for (int d = 0; d < eff_dims; ++d) {
-        (*eigvec)[r * eff_dims + d] = eigvec_offset[r * (*dims) + d];
+        eigvec->data() + exclude_dims * (*inp_dim) + exclude_dims;
+    // Compute eigenvectors and eigenvalues
+    CHECK(eig<real_t>(pca_idim, *inp_dim, eigvec_offset, eigval->data()) == 0);
+    // Now, we have to computed the missed energy during projection, for the
+    // dimensions that were not selected.
+    *miss_energy = accumulate(eigval->begin() + pca_odim, eigval->end(), 0.0);
+    eigval->resize(pca_odim);
+    // Move all eigenvectors to the first rows, in order to free non-used
+    // space of the covariance/eigenvectors matrix
+    for (int r = 0; r < pca_odim; ++r) {
+      for (int d = 0; d < pca_idim; ++d) {
+        (*eigvec)[r * pca_idim + d] = eigvec_offset[r * (*inp_dim) + d];
       }
     }
+    eigvec->resize(pca_odim * pca_idim);
+  } else {
+    eigval->resize(0);
+    eigvec->resize(0);
+    *miss_energy = pca_idim > 0 ? 1.0 : 0.0;
   }
-  eigvec->resize(eff_dims * eff_dims);
 }
 
 template <FORMAT_CODE fmt, typename real_t>
@@ -262,19 +297,14 @@ void do_work(
   vector<real_t> stdev;
   vector<real_t> eigval;
   vector<real_t> eigvec;
-  int pca_idim = inp_dim - abs(exclude_dims);
-  int pca_odim = out_dim - abs(exclude_dims);
-  double remaining_energy = 0.0;
+  double miss_energy = 0.0;
   if (do_compute_pca) {
     compute_pca<fmt, real_t>(
-        input, block, exclude_dims, &inp_dim, &eigval, &eigvec, &mean, &stdev);
-    if (out_dim < 0) {
-      out_dim = inp_dim;
-      pca_odim = max(out_dim - abs(exclude_dims), 0);
-    }
+        input, block, exclude_dims, &inp_dim, &out_dim, &miss_energy,
+        &eigval, &eigvec, &mean, &stdev);
     if (!do_project_data || pca_fn != "") {
       save_pca<real_t>(
-          pca_fn, pca_odim, exclude_dims, mean, stdev, eigval, eigvec);
+          pca_fn, pca_odim, exclude_dims, miss_energy, mean, stdev, eigval, eigvec);
     }
   } else {
     CHECK_MSG(pca_fn != "", "Specify a pca file to load from!");
@@ -284,15 +314,10 @@ void do_work(
           "pca file...", exclude_dims);
     }
     load_pca<real_t>(
-        pca_fn, &inp_dim, &pca_odim, &exclude_dims, &remaining_energy,
+        pca_fn, &inp_dim, &out_dim, &exclude_dims, &miss_energy,
         &mean, &stdev, &eigval, &eigvec);
-    pca_idim = max(inp_dim - abs(exclude_dims), 0);
-    CHECK_FMT(
-        pca_odim <= pca_idim,
-        "Number of output projected dimensions (%d) is greater than number of "
-        "input dimensions available for projection (%d)!", pca_idim, pca_odim);
   }
-  pca_summary(inp_dim, exclude_dims, eigval);
+  pca_summary(inp_dim, out_dim, exclude_dims, miss_energy, eigval);
   if (do_project_data) {
     project_data<fmt, real_t>(
         input, output, block, inp_dim, out_dim, exclude_dims, min_energy,
