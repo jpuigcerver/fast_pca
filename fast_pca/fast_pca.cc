@@ -25,6 +25,7 @@
 #include <getopt.h>
 
 #include <algorithm>
+#include <numeric>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
@@ -93,10 +94,10 @@ void compute_pca(
       block, input, &n, inp_dim, mean, eigvec);
   CHECK_FMT(*inp_dim >= abs(exclude_dims),
             "Number of dimensions to exclude (%d) is bigger than the input "
-            "dimensionality (%d)!", abs(exclude_dims), *inp_dims);
+            "dimensionality (%d)!", abs(exclude_dims), *inp_dim);
   CHECK_FMT(*inp_dim >= *out_dim,
             "Number of output dimensions (%d) is bigger than the input "
-            "dimensionality (%d)!", *out_dims, *inp_dims);
+            "dimensionality (%d)!", *out_dim, *inp_dim);
   // if the number of output dimensions was not set, set it to the number of
   // input dimensions
   if (*out_dim <= 0) *out_dim = *inp_dim;
@@ -231,7 +232,7 @@ void project_data(
           br, idim, odim, exclude_dims, eigvec.data(), mean.data(),
           normalize_data ? stddev.data() : NULL, x.data(), b.data());
       // output data
-      write_matrix<fmt, real_t>(ofile, br, odim, odim, x.data());
+      write_matrix<fmt, real_t>(ofile, br, odim, x.data());
     }
     fclose(ifile);
     fclose(ofile);
@@ -262,15 +263,18 @@ void project_data(
 }
 
 template <typename real_t>
-void pca_summary(int inp_dims, int exclude_dims, const vector<real_t>& eigval) {
-  const int eff_dims = inp_dims - abs(exclude_dims);
-  const double total_energy = accumulate(eigval.begin(), eigval.end(), 0.0);
+void pca_summary(
+    int inp_dim, int out_dim, int exclude_dims, double miss_energy,
+    const vector<real_t>& eigval) {
+  const int pca_idims = inp_dim - abs(exclude_dims);
+  const double total_energy = accumulate(
+      eigval.begin(), eigval.end(), miss_energy);
   // compute energy quantiles
   // (how many dimensions you need to preserve % of energy)
   const double quant_val[] = {0.25, 0.5, 0.75, 1.0};
-  int quant_dim[] = {eff_dims, eff_dims, eff_dims, eff_dims};
+  int quant_dim[] = {pca_idims, pca_idims, pca_idims, pca_idims};
   double cum_energy = 0.0;
-  for (int i = 0, q = 0; i < eff_dims && q < 4; ++i) {
+  for (int i = 0, q = 0; i < pca_idims && q < 4; ++i) {
     cum_energy += eigval[i];
     for (; q < 4 && cum_energy >= total_energy * quant_val[q]; ++q) {
       quant_dim[q] = i + 1;
@@ -280,10 +284,10 @@ void pca_summary(int inp_dims, int exclude_dims, const vector<real_t>& eigval) {
       stderr,
       "-------------------- PCA summary --------------------\n"
       "Input dimensions: %d\n"
-      "Excluded dimensions: %d\n"
+      "Non-projected dimensions: %d\n"
       "Energy quantiles: 25%% -> %d, 50%% -> %d, 75%% -> %d, 100%% -> %d\n"
       "-----------------------------------------------------\n",
-      inp_dims, exclude_dims, quant_dim[0], quant_dim[1], quant_dim[2],
+      inp_dim, exclude_dims, quant_dim[0], quant_dim[1], quant_dim[2],
       quant_dim[3]);
 }
 
@@ -304,7 +308,7 @@ void do_work(
         &eigval, &eigvec, &mean, &stdev);
     if (!do_project_data || pca_fn != "") {
       save_pca<real_t>(
-          pca_fn, pca_odim, exclude_dims, miss_energy, mean, stdev, eigval, eigvec);
+          pca_fn, exclude_dims, miss_energy, mean, stdev, eigval, eigvec);
     }
   } else {
     CHECK_MSG(pca_fn != "", "Specify a pca file to load from!");

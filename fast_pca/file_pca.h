@@ -156,18 +156,21 @@ void load_pca(
 
 // fname        -> (input) file to store the pca data, "" for stdout
 // exclude_dims -> (input) exclude this number of first/last dimensions
+// miss_energy  -> (input) energy not captured by the selected eigenvectors
 // mean         -> (input) means of each data dimension
 // stddev       -> (input) standard deviation of each data dimension
 // eigval       -> (input) eigenvalues vector
 // eigvec       -> (input) eigenvectors matrix
 template <typename real_t>
 void save_pca(
-    const string& fname, int exclude_dims, const vector<real_t>& mean,
-    const vector<real_t>& stddev, const vector<real_t>& eigval,
-    const vector<real_t>& eigvec) {
+    const string& fname, const int exclude_dims, const double miss_energy,
+    const vector<real_t>& mean, const vector<real_t>& stddev,
+    const vector<real_t>& eigval, const vector<real_t>& eigvec) {
   // safety checks
   CHECK(mean.size() == stddev.size());
   CHECK(eigval.size() <= mean.size());
+  const int pca_idim = mean.size() - abs(exclude_dims);
+  const int pca_odim = eigval.size();
   FILE* file = stdout;
   if (fname != "") file = open_file(fname.c_str(), "wb");
   // write excluded dimensions
@@ -181,14 +184,12 @@ void save_pca(
   write_matrix_header<FMT_OCTAVE>(file, "S", 1, stddev.size());
   write_block<FMT_OCTAVE, real_t>(file, stddev.size(), stddev.data());
   // write eigenvalues
-  write_matrix_header<FMT_OCTAVE>(file, "D", 1, pca_odim);
+  write_matrix_header<FMT_OCTAVE>(file, "D", 1, eigval.size());
   write_block<FMT_OCTAVE, real_t>(file, eigval.size(), eigval.data());
   // write eigenvectors
-  const int pca_idim = mean.size() - abs(exclude_dims);
-  const int pca_odim = eigval.size();
   write_matrix_header<FMT_OCTAVE>(file, "V", pca_odim, pca_idim);
   write_matrix<FMT_OCTAVE, real_t>(
-      file, pca_idim, pca_odim, pca_idim, eigvec.data());
+      file, pca_idim, pca_odim, eigvec.data());
   fclose(file);
 }
 

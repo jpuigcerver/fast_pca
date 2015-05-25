@@ -22,6 +22,7 @@
   SOFTWARE.
 */
 
+#include "fast_pca/endian.h"
 #include "fast_pca/file.h"
 #include "fast_pca/logging.h"
 
