@@ -328,11 +328,11 @@ int main(int argc, char** argv) {
       break;
     case FMT_BINARY:
       if (simple_precision) {
-        do_work<FMT_OCTAVE, float>(
+        do_work<FMT_BINARY, float>(
             do_compute_pca, do_project_data, pca_fn, input,
             output, block, inp_dim, out_dim, min_energy, normalize_data);
       } else {
-        do_work<FMT_OCTAVE, double>(
+        do_work<FMT_BINARY, double>(
             do_compute_pca, do_project_data, pca_fn, input,
             output, block, inp_dim, out_dim, min_energy, normalize_data);
       }
