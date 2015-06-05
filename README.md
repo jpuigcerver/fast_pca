@@ -1,6 +1,9 @@
 fast_pca
 ========
 
+**WARNING: The master branch is currently broken, since I am working with 
+new features. Please, use the stable 0.1 branch instead.**
+
 A fast and memory efficient Principal Components Analysis software.
 
 - **Why fast?**
