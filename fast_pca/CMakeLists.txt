@@ -1,10 +1,13 @@
 add_library(math OBJECT math.h math.cc)
 add_library(file OBJECT
   file.h file.cc
-  file_octave.h file_octave.cc
-  file_plain.cc
+  file_ascii.cc
+  file_binary.cc
   file_vbosch.cc
-  file_prhlt_htk.cc)
+  file_octave.h file_octave.cc
+  file_htk.h file_htk.cc
+  file_mat4.h file_mat4.cc
+  )
 
 add_executable(fast_pca
   fast_pca.cc

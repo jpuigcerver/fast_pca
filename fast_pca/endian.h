@@ -1,7 +1,7 @@
 /*
   The MIT License (MIT)
 
-  Copyright (c) 2014 Joan Puigcerver
+  Copyright (c) 2015 Joan Puigcerver
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -52,5 +52,57 @@
 #define be64toh(x) betoh64(x)
 #define le64toh(x) letoh64(x)
 #endif
+
+#include <stdint.h>
+#include <stdlib.h>
+
+template <int n>
+inline void swap_bytes(void* bytes) {
+  char* cbytes = reinterpret_cast<char*>(bytes);
+  for (int i = 0, j = n - 1; i < n / 2; ++i, --j) {
+    const char tmp = cbytes[i];
+    cbytes[i] = cbytes[j];
+    cbytes[j] = tmp;
+  }
+}
+
+template <>
+inline void swap_bytes<4>(void* bytes) {
+  char* cbytes = reinterpret_cast<char*>(bytes);
+  const char tmp[2] = {cbytes[0], cbytes[1]};
+  cbytes[0] = cbytes[3];
+  cbytes[1] = cbytes[2];
+  cbytes[2] = tmp[1];
+  cbytes[3] = tmp[0];
+}
+
+// Determine whether the machine is bigendian or not
+// NOTE: The output of this function is known at compile time, a good
+// compiler should know this (i.e. GCC does know it at compile time).
+inline bool is_big_endian() {
+  union {
+    uint32_t i;
+    char c[4];
+  } bint = {0x01020304};
+  return bint.c[0] == 1;
+}
+
+// Convert float number in big-endian to the host endianness
+// NOTE: A clever compiler should optimize this heavily
+inline float beftoh(float f) {
+  if (is_big_endian()) return f;
+  float f2 = f;
+  swap_bytes<sizeof(float)>(&f2);
+  return f2;
+}
+
+// Convert float in host endianness to big-endian
+// NOTE: A clever compiler should optimize this heavily
+inline float htobef(float f) {
+  if (is_big_endian()) return f;
+  float f2 = f;
+  swap_bytes<sizeof(float)>(&f2);
+  return f2;
+}
 
 #endif  // FAST_PCA_ENDIAN_H_

@@ -26,41 +26,6 @@
 #include "fast_pca/file.h"
 #include "fast_pca/logging.h"
 
-// Determine whether the machine is bigendian or not
-// NOTE: The output of this function is known at compile time, a good
-// compiler should know this (i.e. GCC does know it at compile time).
-inline bool is_big_endian() {
-  union {
-    uint32_t i;
-    char c[4];
-  } bint = {0x01020304};
-  return bint.c[0] == 1;
-}
-
-// Convert float number in big-endian to the host endianness
-// NOTE: A clever compiler should optimize this heavily
-inline float beftoh(float f) {
-  if (is_big_endian()) return f;
-  float f2 = 0.0;
-  char* cf  = reinterpret_cast<char*>(&f);
-  char* cf2 = reinterpret_cast<char*>(&f2);
-  for (size_t i = 0; i < sizeof(float) / 2; ++i)
-    cf[i] = cf2[sizeof(float) - i - 1];
-  return f2;
-}
-
-// Convert float in host endianness to big-endian
-// NOTE: A clever compiler should optimize this heavily
-inline float htobef(float f) {
-  if (is_big_endian()) return f;
-  float f2 = 0.0;
-  char* cf  = reinterpret_cast<char*>(&f);
-  char* cf2 = reinterpret_cast<char*>(&f2);
-  for (size_t i = 0; i < sizeof(float) / 2; ++i)
-    cf[i] = cf2[sizeof(float) - i - 1];
-  return f2;
-}
-
 template <> int read_matrix_header<FMT_PRHLT_HTK>(
     FILE* file, string* name, int* rows, int* cols) {
   uint32_t nSamples = 0, sampPeriod = 0;

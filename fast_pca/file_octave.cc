@@ -1,7 +1,7 @@
 /*
   The MIT License (MIT)
 
-  Copyright (c) 2014 Joan Puigcerver
+  Copyright (c) 2014,2015 Joan Puigcerver
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -22,14 +22,11 @@
   SOFTWARE.
 */
 
-#include "fast_pca/file.h"
 #include "fast_pca/file_octave.h"
 
 #include <sstream>
-#include <string>
 
 using std::istringstream;
-using std::string;
 
 template <typename T>
 bool read_keyword(FILE* file, const string& key, T* val) {
@@ -78,93 +75,77 @@ bool read_keyword(FILE* file, const string& key, T* val) {
   return false;
 }
 
-template <> int read_matrix_header<FMT_OCTAVE>(
-    FILE* file, string* name, int* rows, int* cols) {
-  string type;
-  return !((name == NULL || read_keyword(file, "name", name)) &&
-           (read_keyword(file, "type", &type) && type == "matrix") &&
-           read_keyword(file, "rows", rows) &&
-           read_keyword(file, "columns", cols));
+// virtual
+bool MatrixFile_Octave::copy_header_from(const MatrixFile& other) {
+  if (other.format() != format_) return false;
+  rows_ = other.rows();
+  cols_ = other.cols();
+  name_ = static_cast<const MatrixFile_Octave*>(&other)->name_;
+  return true;
 }
 
-template <> void write_matrix_header<FMT_OCTAVE>(
-    FILE* file, const string& name, int rows, int cols) {
-  if (name != "") {
-    fprintf(file, "# name: %s\n", name.c_str());
+// virtual
+bool MatrixFile_Octave::read_header() {
+  CHECK(file_);
+  string type = "";
+  if (!read_keyword(file_, "name", &name_)) return false;
+  if (!read_keyword(file_, "type", &type) || type != "matrix") return false;
+  if (!read_keyword(file_, "rows", &rows_) || rows_ < 0) return false;
+  if (!read_keyword(file_, "columns", &cols_) || cols_ < 0) return false;
+  return true;
+}
+
+// virtual
+void MatrixFile_Octave::write_header() const {
+  CHECK(file_);
+  if (name_ != "") {
+    fprintf(file_, "# name: %s\n", name_.c_str());
   }
-  fprintf(file, "# type: matrix\n");
-  fprintf(file, "# rows: %d\n", rows);
-  fprintf(file, "# columns: %d\n", cols);
+  fprintf(file_, "# type: matrix\n");
+  fprintf(file_, "# rows: %d\n", rows_);
+  fprintf(file_, "# columns: %d\n", cols_);
 }
 
-template <>
-int read_block<FMT_OCTAVE, float>(FILE* file, int n, float* m) {
+// virtual
+int MatrixFile_Octave::read_block(int n, float* m) const {
+  CHECK(file_);
   int i = 0;
-  for (; i < n && fscanf(file, "%f", m + i) == 1; ++i) { }
+  for (; i < n && fscanf(file_, "%f", m + i) == 1; ++i) { }
   return i;
 }
 
-template <>
-int read_block<FMT_OCTAVE, double>(FILE* file, int n, double* m) {
+// virtual
+int MatrixFile_Octave::read_block(int n, double* m) const {
+  CHECK(file_);
   int i = 0;
-  for (; i < n && fscanf(file, "%lf", m + i) == 1; ++i) { }
+  for (; i < n && fscanf(file_, "%lf", m + i) == 1; ++i) { }
   return i;
 }
 
-template <>
-void write_block<FMT_OCTAVE, float>(FILE* file, int n, const float* m) {
-  for (int i = 0; i < n - 1; ++i) fprintf(file, "%.16g ", m[i]);
-  fprintf(file, "%.16g\n", m[n - 1]);
+// virtual
+void MatrixFile_Octave::write_block(int n, const float* m) const {
+  CHECK(file_);
+  if (n <= 0) return;
+  for (int i = 0; i < n - 1; ++i) fprintf(file_, "%.16g ", m[i]);
+  fprintf(file_, "%.16g\n", m[n - 1]);
 }
 
-template <>
-void write_block<FMT_OCTAVE, double>(FILE* file, int n, const double* m) {
-  for (int i = 0; i < n - 1; ++i) fprintf(file, "%.16g ", m[i]);
-  fprintf(file, "%.16g\n", m[n - 1]);
+// virtual
+void MatrixFile_Octave::write_block(int n, const double* m) const {
+  CHECK(file_);
+  if (n <= 0) return;
+  for (int i = 0; i < n - 1; ++i) fprintf(file_, "%.16g ", m[i]);
+  fprintf(file_, "%.16g\n", m[n - 1]);
 }
 
+// static
 template <>
-void write_matrix<FMT_OCTAVE, float>(
-    FILE* file, int rows, int cols, const float* m) {
-  for (int r = 0; r < rows; ++r) {
-    write_block<FMT_OCTAVE, float>(file, cols, m + r * cols);
-  }
+MatrixFile* MatrixFile::Create<FMT_OCTAVE>() {
+  return new MatrixFile_Octave;
 }
 
+// static
 template <>
-void write_matrix<FMT_OCTAVE, double>(
-    FILE* file, int rows, int cols, const double* m) {
-  for (int r = 0; r < rows; ++r) {
-    write_block<FMT_OCTAVE, double>(file, cols, m + r * cols);
-  }
-}
-
-template <>
-int octave_read_scalar<int>(FILE* file, string* name, int* v) {
-  string type;
-  return !((name == NULL || read_keyword(file, "name", name)) &&
-           (read_keyword(file, "type", &type) && type == "scalar") &&
-           fscanf(file, "%d", v) == 1);
-}
-
-template <>
-int octave_read_scalar<double>(FILE* file, string* name, double* v) {
-  string type;
-  return !((name == NULL || read_keyword(file, "name", name)) &&
-           (read_keyword(file, "type", &type) && type == "scalar") &&
-           fscanf(file, "%lf", v) == 1);
-}
-
-template <>
-void octave_write_scalar<int>(FILE* file, const string& name, int v) {
-  fprintf(file, "# name: %s\n", name.c_str());
-  fprintf(file, "# type: scalar\n");
-  fprintf(file, "%d\n", v);
-}
-
-template <>
-void octave_write_scalar<double>(FILE* file, const string& name, double v) {
-  fprintf(file, "# name: %s\n", name.c_str());
-  fprintf(file, "# type: scalar\n");
-  fprintf(file, "%.16g\n", v);
+MatrixFile* MatrixFile::Create<FMT_OCTAVE>(FILE* file) {
+  return new MatrixFile_Octave(file);
 }

@@ -1,7 +1,7 @@
 /*
   The MIT License (MIT)
 
-  Copyright (c) 2014 Joan Puigcerver
+  Copyright (c) 2014,2015 Joan Puigcerver
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -36,11 +36,12 @@ using std::vector;
 
 typedef enum {
   FMT_UNKNOWN = -1,
-  FMT_ASCII = 0,
-  FMT_BINARY,
-  FMT_OCTAVE,
-  FMT_VBOSCH,
-  FMT_PRHLT_HTK
+  FMT_ASCII   = 0,
+  FMT_BINARY  = 1,
+  FMT_OCTAVE  = 2,
+  FMT_VBOSCH  = 3,
+  FMT_HTK     = 4,
+  FMT_MAT4    = 5
 } FORMAT_CODE;
 
 FORMAT_CODE format_code_from_name(const string& name);
@@ -64,25 +65,54 @@ void open_files(
 // ------------------------------------------------------------------------
 void close_files(const vector<FILE*>& files);
 
-template <FORMAT_CODE code>
-int read_matrix_header(FILE* file, string* name, int* rows, int* cols);
 
-template <FORMAT_CODE code>
-void write_matrix_header(FILE* file, const string& name, int rows, int cols);
+// ------------------------------------------------------------------------
+// ---- Abstract templated methods for reading / writing matrices in
+// ---- different file formats.
+// ---- MatrixHeader class can be inherited in order to add additional
+// ---- fields that other formats may need.
+// ------------------------------------------------------------------------
 
-template <FORMAT_CODE code, typename real_t>
-int read_block(FILE* file, int n, real_t* m);
+class MatrixFile {
+ protected:
+  FORMAT_CODE format_;
+  FILE* file_;
+  int rows_;
+  int cols_;
 
-template <FORMAT_CODE code, typename real_t>
-void write_block(FILE* file, int n, const real_t* m);
+ public:
+  explicit MatrixFile(FORMAT_CODE format) :
+      format_(format), file_(nullptr), rows_(-1), cols_(-1) {}
+  explicit MatrixFile(FILE* file) :
+      file_(file), rows_(-1), cols_(-1) {}
+  virtual ~MatrixFile() {}
 
-// file -> (input) descriptor of the file to write the matrix
-// r    -> (input) number of rows
-// c    -> (input) number of columns
-// ldm  -> (input) leading dimension of the matrix
-// m    -> (input) matrix to write
-template <FORMAT_CODE code, typename real_t>
-void write_matrix(FILE* file, int r, int c, const real_t* m);
+  inline FORMAT_CODE format() const { return format_; }
+  inline void file(FILE* f) { file_ = f; }
+  inline void rows(int n) { rows_ = n; }
+  inline void cols(int n) { cols_ = n; }
+  inline FILE* file() const { return file_; }
+  inline int rows() const { return rows_; }
+  inline int cols() const { return cols_; }
 
+  virtual bool read_header() { return true; }
+  virtual void write_header() const {}
+  virtual bool copy_header_from(const MatrixFile& other) {
+    rows_ = other.rows();
+    cols_ = other.cols();
+    return true;
+  }
+
+  virtual int read_block(int n, float* m) const = 0;
+  virtual int read_block(int n, double* m) const = 0;
+  virtual void write_block(int n, const float* m) const = 0;
+  virtual void write_block(int n, const double* m) const = 0;
+
+
+  template <FORMAT_CODE format>
+  static MatrixFile* Create();
+  template <FORMAT_CODE format>
+  static MatrixFile* Create(FILE* file);
+};
 
 #endif  // FAST_PCA_FILE_H_

@@ -1,7 +1,7 @@
 /*
   The MIT License (MIT)
 
-  Copyright (c) 2014,2015 Joan Puigcerver
+  Copyright (c) 2015 Joan Puigcerver
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -22,47 +22,25 @@
   SOFTWARE.
 */
 
-#include "fast_pca/file_vbosch.h"
+#include "fast_pca/file_ascii.h"
 
-// virtual
-bool MatrixFile_VBosch::copy_header_from(const MatrixFile& other) {
-  if (other.format() != format_) return false;
-  rows_ = other.rows();
-  cols_ = other.cols();
-  return true;
-}
+#include <cstdio>
 
-// virtual
-bool MatrixFile_VBosch::read_header() {
-  CHECK(file_);
-  return (fscanf(file_, "%d %d", &rows_, &cols_) == 2 &&
-          rows_ >= 0 && cols_ >= 0);
-}
-
-// virtual
-void MatrixFile_VBosch::write_header() const {
-  CHECK(file_);
-  fprintf(file_, "%d %d\n", rows_, cols_);
-}
-
-// virtual
-int MatrixFile_VBosch::read_block(int n, float* m) const {
+int MatrixFile_ASCII::read_block(int n, float* m) const {
   CHECK(file_);
   int i = 0;
   for (; i < n && fscanf(file_, "%f", m + i) == 1; ++i) { }
   return i;
 }
 
-// virtual
-int MatrixFile_VBosch::read_block(int n, double* m) const {
+int MatrixFile_ASCII::read_block(int n, double* m) const {
   CHECK(file_);
   int i = 0;
   for (; i < n && fscanf(file_, "%lf", m + i) == 1; ++i) { }
   return i;
 }
 
-// virtual
-void MatrixFile_VBosch::write_block(int n, const float* m) const {
+void MatrixFile_ASCII::write_block(int n, const float* m) const {
   CHECK(file_);
   for (int i = 0; i < n; ++i) {
     if ((i + 1) % cols_ == 0)
@@ -72,8 +50,7 @@ void MatrixFile_VBosch::write_block(int n, const float* m) const {
   }
 }
 
-// virtual
-void MatrixFile_VBosch::write_block(int n, const double* m) const {
+void MatrixFile_ASCII::write_block(int n, const double* m) const {
   CHECK(file_);
   for (int i = 0; i < n; ++i) {
     if ((i + 1) % cols_ == 0)
@@ -85,12 +62,12 @@ void MatrixFile_VBosch::write_block(int n, const double* m) const {
 
 // static
 template <>
-MatrixFile* MatrixFile::Create<FMT_VBOSCH>() {
-  return new MatrixFile_VBosch;
+MatrixFile* MatrixFile::Create<FMT_ASCII>() {
+  return new MatrixFile_ASCII;
 }
 
 // static
 template <>
-MatrixFile* MatrixFile::Create<FMT_VBOSCH>(FILE* file) {
-  return new MatrixFile_VBosch(file);
+MatrixFile* MatrixFile::Create<FMT_ASCII>(FILE* file) {
+  return new MatrixFile_ASCII(file);
 }

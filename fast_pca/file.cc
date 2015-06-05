@@ -1,7 +1,7 @@
 /*
   The MIT License (MIT)
 
-  Copyright (c) 2014 Joan Puigcerver
+  Copyright (c) 2014,2015 Joan Puigcerver
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -34,8 +34,10 @@ FORMAT_CODE format_code_from_name(const string& name) {
     return FMT_OCTAVE;
   } else if (name == "vbosch") {
     return FMT_VBOSCH;
-  } else if (name == "prhlt_htk") {
-    return FMT_PRHLT_HTK;
+  } else if (name == "htk") {
+    return FMT_HTK;
+  } else if (name == "mat4") {
+    return FMT_MAT4;
   } else {
     return FMT_UNKNOWN;
   }

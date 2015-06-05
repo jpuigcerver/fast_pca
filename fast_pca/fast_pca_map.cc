@@ -1,7 +1,7 @@
 /*
   The MIT License (MIT)
 
-  Copyright (c) 2014 Joan Puigcerver
+  Copyright (c) 2014,2015 Joan Puigcerver
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,7 @@
 #include <string>
 #include <vector>
 
-#include "fast_pca/fast_pca.h"
+#include "fast_pca/fast_pca_common.h"
 #include "fast_pca/logging.h"
 
 using std::string;
@@ -39,11 +39,12 @@ using std::vector;
 void help(const char* prog) {
   fprintf(
       stderr,
-      "Usage: %s [-b size] [-d] [-f format] [-o output] [-d dim] [input ...]\n"
+      "Usage: %s [options] [input ...]\n\n"
       "Options:\n"
       "  -b size    process data in batches of this number of rows\n"
       "  -d         use double precision\n"
-      "  -f format  format of the data matrix (ascii, binary, octave, vbosch)\n"
+      "  -f format  format of the data matrix (ascii, binary, octave, vbosch,\n"
+      "             htk, mat4)\n"
       "  -o output  output file\n"
       "  -p dim     data dimensions\n",
       prog);
@@ -139,11 +140,17 @@ int main(int argc, char** argv) {
       else
         do_work<FMT_VBOSCH, double>(block, dims, output, input);
       break;
-    case FMT_PRHLT_HTK:
+    case FMT_HTK:
       if (simple)
-        do_work<FMT_PRHLT_HTK, float>(block, dims, output, input);
+        do_work<FMT_HTK, float>(block, dims, output, input);
       else
-        do_work<FMT_PRHLT_HTK, double>(block, dims, output, input);
+        do_work<FMT_HTK, double>(block, dims, output, input);
+      break;
+    case FMT_MAT4:
+      if (simple)
+        do_work<FMT_MAT4, float>(block, dims, output, input);
+      else
+        do_work<FMT_MAT4, double>(block, dims, output, input);
       break;
     default:
       ERROR("Not implemented for this format!");

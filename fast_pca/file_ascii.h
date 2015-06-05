@@ -1,7 +1,7 @@
 /*
   The MIT License (MIT)
 
-  Copyright (c) 2014,2015 Joan Puigcerver
+  Copyright (c) 2015 Joan Puigcerver
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -22,26 +22,15 @@
   SOFTWARE.
 */
 
-#ifndef FAST_PCA_FILE_OCTAVE_H_
-#define FAST_PCA_FILE_OCTAVE_H_
+#ifndef FAST_PCA_FILE_ASCII_H_
+#define FAST_PCA_FILE_ASCII_H_
 
 #include "fast_pca/file.h"
 
-#include <string>
-
-using std::string;
-
-class MatrixFile_Octave : public MatrixFile {
- protected:
-  string name_;
-
+class MatrixFile_ASCII : public MatrixFile {
  public:
-  MatrixFile_Octave() : MatrixFile(FMT_OCTAVE) {}
-  explicit MatrixFile_Octave(FILE* file) : MatrixFile(file), name_("") {}
-
-  virtual bool copy_header_from(const MatrixFile& other);
-  virtual bool read_header();
-  virtual void write_header() const;
+  MatrixFile_ASCII() : MatrixFile(FMT_ASCII) {}
+  explicit MatrixFile_ASCII(FILE* file) : MatrixFile(file) {}
 
   virtual int read_block(int n, float* m) const;
   virtual int read_block(int n, double* m) const;
@@ -49,4 +38,4 @@ class MatrixFile_Octave : public MatrixFile {
   virtual void write_block(int n, const double* m) const;
 };
 
-#endif  // FAST_PCA_FILE_OCTAVE_H_
+#endif  // FAST_PCA_FILE_ASCII_H_

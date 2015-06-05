@@ -1,7 +1,7 @@
 /*
   The MIT License (MIT)
 
-  Copyright (c) 2014 Joan Puigcerver
+  Copyright (c) 2014,2015 Joan Puigcerver
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -56,21 +56,21 @@ int eig(int n, int l, real_t* m, real_t* w) {
   return 0;
 }
 
-
-// n -> (input) number of data samples
-// p -> (input) input data dimension
-// q -> (input) output data dimension
-// r -> (input) exclude these number of first/last dimensions from projection
-// e -> (input) eigenvectors of the zero-mean covariance of the input data
-// m -> (input) mean of the input data for each dimension
-// s -> (input) standard deviation of the input data for each dimension
-// x -> (input/output) input: original data, output: projected data
-// b -> (output) mean-centered (and optionally standarized) original data
+// n -> (input)  number of data samples
+// p -> (input)  input data dimension
+// q -> (input)  output data dimension
+// r -> (input)  exclude these number of first/last dimensions from projection
+// m -> (input)  mean of the input data for each dimension
+// s -> (input)  standard deviation of the input data for each dimension
+// v -> (input)  eigenvectors of the zero-mean covariance of the input data
+// x -> (input)  original data,
+//      (output) mean-centered and (optionally) normalized data
+// z -> (output) projected data
 template <typename real_t>
 int project(
-    int n, int p, int q, int r, const real_t* e, const real_t* m,
-    const real_t* s, real_t* x, real_t* b) {
-  if (p < q) { return -1; }
+    int n, int p, int q, int r, const real_t* v, const real_t* m,
+    const real_t* s, real_t* x, real_t* z) {
+  if (p < q || !x || !z) { return -1; }
   // convert input data to zero-mean
   // TODO(jpuigcerver): this can run in parallel
   for (int i = 0; i < n; ++i) { axpy<real_t>(p, -1, m, x + i * p); }
@@ -85,23 +85,23 @@ int project(
       }
     }
   }
-  // Copy x (the mean-centered and normalized data) to auxiliar matrix b
-  // NOTE: Since gemm will destroy original data x, we need to store it
-  // somewhere else to perform the matrix multiplication.
-  real_t* b_loc = b ? b : new real_t[n * p];
-  memcpy(b, x, sizeof(real_t) * n * p);
+  // Copy non-projected dimensions
+  // TODO(jpuigcerver): this can run in parallel
+  for (int i = 0; r != 0 && i < n; ++i) {
+    const real_t* xi = r > 0 ? x + i * p : x + (i + 1) * p + r;
+    real_t* zi = r > 0 ? z + i * q : z + (i + 1) * q + r;
+    memcpy(zi, xi, sizeof(real_t) * abs(r));
+  }
   // Effective sizes (p: input, q: output) of the projected data
   const int eff_p = p - abs(r);
   const int eff_q = q - abs(r);
-  // Offset to the input/output data, so the excluded dimensions are not
-  // projected
-  real_t* b_offset = r <= 0 ? b_loc : b_loc + r;
-  real_t* x_offset = r <= 0 ? x :  x + r;
-  gemm<real_t>(
-      'N', 'T', n, eff_q, eff_p, 1, b_offset, p, e, eff_p, 0, x_offset, q);
-  // If the b matrix was not given, remove the auxiliar one
-  if (b != b_loc) {
-    delete [] b_loc;
+  if (eff_p > 0 && eff_q > 0) {
+    // Offset to the input/output data, so the excluded dimensions are not
+    // projected
+    real_t* x_offset = r <= 0 ? x : x + r;
+    real_t* z_offset = r <= 0 ? z : z + r;
+    gemm<real_t>(
+        'N', 'T', n, eff_q, eff_p, 1, x_offset, p, v, eff_p, 0, z_offset, q);
   }
   return 0;
 }

@@ -22,22 +22,23 @@
   SOFTWARE.
 */
 
-#ifndef FAST_PCA_FILE_OCTAVE_H_
-#define FAST_PCA_FILE_OCTAVE_H_
+#ifndef FAST_PCA_FILE_HTK_H_
+#define FAST_PCA_FILE_HTK_H_
 
 #include "fast_pca/file.h"
 
-#include <string>
-
-using std::string;
-
-class MatrixFile_Octave : public MatrixFile {
+class MatrixFile_HTK : public MatrixFile {
  protected:
-  string name_;
+  uint32_t nSamples_;
+  uint32_t sampPeriod_;
+  uint16_t sampSize_;
+  uint16_t parmKind_;
 
  public:
-  MatrixFile_Octave() : MatrixFile(FMT_OCTAVE) {}
-  explicit MatrixFile_Octave(FILE* file) : MatrixFile(file), name_("") {}
+  MatrixFile_HTK() : MatrixFile(FMT_HTK) {}
+  explicit MatrixFile_HTK(FILE* file) :
+      MatrixFile(file), nSamples_(0), sampPeriod_(0), sampSize_(0),
+      parmKind_(0) { }
 
   virtual bool copy_header_from(const MatrixFile& other);
   virtual bool read_header();
@@ -49,4 +50,4 @@ class MatrixFile_Octave : public MatrixFile {
   virtual void write_block(int n, const double* m) const;
 };
 
-#endif  // FAST_PCA_FILE_OCTAVE_H_
+#endif  // FAST_PCA_FILE_HTK_H_

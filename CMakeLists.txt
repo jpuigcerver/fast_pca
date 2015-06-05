@@ -12,3 +12,6 @@ message(STATUS "LAPACK_LIBRARIES: ${LAPACK_LIBRARIES}")
 
 include_directories(${PROJECT_SOURCE_DIR})
 add_subdirectory(fast_pca)
+
+enable_testing()
+add_subdirectory(tests)

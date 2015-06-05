@@ -1,7 +1,7 @@
 /*
   The MIT License (MIT)
 
-  Copyright (c) 2014,2015 Joan Puigcerver
+  Copyright (c) 2015 Joan Puigcerver
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -22,31 +22,42 @@
   SOFTWARE.
 */
 
-#ifndef FAST_PCA_FILE_OCTAVE_H_
-#define FAST_PCA_FILE_OCTAVE_H_
+#include "fast_pca/file_binary.h"
 
-#include "fast_pca/file.h"
+#include <cstdio>
 
-#include <string>
+// virtual
+int MatrixFile_Binary::read_block(int n, float* m) const {
+  CHECK(file_);
+  return fread(m, sizeof(float), n, file_);
+}
 
-using std::string;
+// virtual
+int MatrixFile_Binary::read_block(int n, double* m) const {
+  CHECK(file_);
+  return fread(m, sizeof(double), n, file_);
+}
 
-class MatrixFile_Octave : public MatrixFile {
- protected:
-  string name_;
+// virtual
+void MatrixFile_Binary::write_block(int n, const float* m) const {
+  CHECK(file_);
+  fwrite(m, sizeof(float), n, file_);
+}
 
- public:
-  MatrixFile_Octave() : MatrixFile(FMT_OCTAVE) {}
-  explicit MatrixFile_Octave(FILE* file) : MatrixFile(file), name_("") {}
+// virtual
+void MatrixFile_Binary::write_block(int n, const double* m) const {
+  CHECK(file_);
+  fwrite(m, sizeof(double), n, file_);
+}
 
-  virtual bool copy_header_from(const MatrixFile& other);
-  virtual bool read_header();
-  virtual void write_header() const;
+// static
+template <>
+MatrixFile* MatrixFile::Create<FMT_BINARY>() {
+  return new MatrixFile_Binary;
+}
 
-  virtual int read_block(int n, float* m) const;
-  virtual int read_block(int n, double* m) const;
-  virtual void write_block(int n, const float* m) const;
-  virtual void write_block(int n, const double* m) const;
-};
-
-#endif  // FAST_PCA_FILE_OCTAVE_H_
+// static
+template <>
+MatrixFile* MatrixFile::Create<FMT_BINARY>(FILE* file) {
+  return new MatrixFile_Binary(file);
+}

@@ -10,9 +10,10 @@ Bh = bsxfun(@rdivide, B, s);
 C = cov(B);
 % Eigenvectors and eigenvalues of the cov. matrix
 [V,D] = eig(C);
+D = diag(D);
 % Sort eigenvalues and eigenvectors
-[D,i] = sort(diag(D), 'descend');
-V = V(:,i);
+D = D(end:-1:1);
+V = fliplr(V);
 % Project data
 Z = B * V;
 % Project normalized data

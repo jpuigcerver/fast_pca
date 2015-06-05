@@ -1,7 +1,7 @@
 /*
   The MIT License (MIT)
 
-  Copyright (c) 2014 Joan Puigcerver
+  Copyright (c) 2014,2015 Joan Puigcerver
 
   Permission is hereby granted, free of charge, to any person obtaining a copy
   of this software and associated documentation files (the "Software"), to deal
@@ -50,12 +50,14 @@ template <> int read_block<FMT_ASCII, double>(FILE* file, int n, double* m) {
 
 template <> void write_block<FMT_ASCII, float>(
     FILE* file, int n, const float* m) {
+  if (n <= 0) return;
   for (int i = 0; i < n - 1; ++i) fprintf(file, "%.16g ", m[i]);
   fprintf(file, "%.16g\n", m[n - 1]);
 }
 
 template <> void write_block<FMT_ASCII, double>(
     FILE* file, int n, const double* m) {
+  if (n <= 0) return;
   for (int i = 0; i < n - 1; ++i) fprintf(file, "%.16g ", m[i]);
   fprintf(file, "%.16g\n", m[n - 1]);
 }
